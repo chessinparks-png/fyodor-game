@@ -1,53 +1,80 @@
-/* UNDERGROUND — prototype engine. Vanilla JS, no network, state in localStorage. */
+/* UNDERGROUND — engine. Vanilla JS, no network, state in localStorage.
+   Chamber content is registered by chambers/<id>.js; see content.js for the schema. */
 (function () {
   'use strict';
 
   const U = window.UNDERGROUND;
-  const CH = U.spite;
-  const META = U.chambers.find(c => c.id === 'spite');
   const KEY = 'underground.v1';
   const POINTS = 10;
+  const DEEPEST = U.chambers[0].startDepth;          // −91m
+  const SURFACE = U.chambers[U.chambers.length - 1].endDepth;   // 0m
 
-  /* ── content index ─────────────────────────────────────────── */
-  let act = 1;
-  const STEPS = CH.steps.map((s, i) => {
-    if (s.type === 'act') act = s.act;
-    return Object.assign({ i, act }, s);
-  });
-  const QUESTIONS = STEPS.filter(s => s.type === 'question');
-  const SCORED = QUESTIONS.filter(q => q.scored);
-  SCORED.forEach((q, i) => { q.n = i + 1; });
-  const Q = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
-  const REVIEW = CH.review;
-  const TOTAL = SCORED.length;             // 24
-  const MAX = TOTAL * POINTS;              // 240
+  /* ── chamber index ─────────────────────────────────────────── */
+  function index(meta) {
+    const data = U.content[meta.id];
+    let act = 1;
+    const steps = data.steps.map((s, i) => {
+      if (s.type === 'act') act = s.act;
+      return Object.assign({ i, act }, s);
+    });
+    const questions = steps.filter(s => s.type === 'question');
+    const scored = questions.filter(q => q.scored);
+    scored.forEach((q, i) => { q.n = i + 1; });
+    return {
+      id: meta.id, meta, data, steps, scored,
+      Q: Object.fromEntries(questions.map(q => [q.id, q])),
+      review: data.review || [],
+      total: scored.length,
+      max: scored.length * POINTS
+    };
+  }
+  const CHAMBERS = {};
+  U.chambers.forEach(m => { if (U.content[m.id]) CHAMBERS[m.id] = index(m); });
+  const playable = id => !!CHAMBERS[id];
+  let C = null;                                       // the chamber currently on screen
 
   /* ── state ─────────────────────────────────────────────────── */
-  function fresh() {
+  function freshChamber(id) {
     return {
-      version: 1,
-      contentVersion: U.contentVersion,
-      depth: META.startDepth,
-      view: 'map',
-      run: null,          // in-progress descent
-      lastRun: null,      // summary of the most recent completed descent
-      spite: {
-        completed: false,
-        completedAt: null,
-        runs: 0,
-        record: null,     // first completed descent: { answers: { qid: { pick, correct } } }
-        recovered: {},    // qid -> true when regained through review
-        review: {},       // groupId -> { v, exhausted, answered }
-        interrupts: {}
-      }
+      contentVersion: CHAMBERS[id].data.contentVersion,
+      completed: false, completedAt: null, runs: 0,
+      record: null,     // first completed descent: { answers: { qid: { pick, correct } } }
+      recovered: {},    // qid -> true when regained through review
+      review: {},       // groupId -> { v, exhausted, answered }
+      interrupts: {},
+      run: null,        // in-progress descent
+      lastRun: null     // summary of the most recent completed descent
     };
+  }
+  function fresh() {
+    return { version: 2, depth: DEEPEST, view: 'map', chambers: {} };
+  }
+  function migrate(s) {
+    // v1 held SPITE alone; keep its progress if it was made on the current SPITE content
+    const out = fresh();
+    if (s.contentVersion === 2 && s.spite && CHAMBERS.spite) {
+      out.chambers.spite = Object.assign(freshChamber('spite'), s.spite, { run: s.run || null, lastRun: s.lastRun || null });
+      if (s.run) out.chambers.spite.run.chamber = 'spite';
+      out.depth = Math.max(DEEPEST, s.depth || DEEPEST);
+      const v = s.view || 'map';
+      out.view = v === 'play' ? 'play:spite' : v === 'results' ? 'results:spite' : v === 'review' ? 'review:spite'
+        : v.startsWith('reviewq:') ? 'reviewq:spite:' + v.slice(8) : 'map';
+    }
+    return out;
   }
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const s = JSON.parse(raw);
-        if (s && s.version === 1 && s.spite && s.contentVersion === U.contentVersion) return s;
+        let s = JSON.parse(raw);
+        if (s && s.version === 1) s = migrate(s);
+        if (s && s.version === 2 && s.chambers) {
+          // a chamber whose questions changed starts clean; the others keep their progress
+          for (const id of Object.keys(s.chambers)) {
+            if (!CHAMBERS[id] || s.chambers[id].contentVersion !== CHAMBERS[id].data.contentVersion) delete s.chambers[id];
+          }
+          return s;
+        }
       }
     } catch (e) { /* storage unavailable or corrupt: start clean */ }
     return fresh();
@@ -56,6 +83,9 @@
     try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* private mode: play on */ }
   }
   let S = load();
+  const cs = id => (S.chambers[id || C.id] = S.chambers[id || C.id] || freshChamber(id || C.id));
+  const peek = id => S.chambers[id] || freshChamber(id);        // read-only: never creates stored state
+  const R = () => cs().run;
 
   /* ── helpers ───────────────────────────────────────────────── */
   const reduced = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -83,6 +113,7 @@
   const fmt = d => (d < 0 ? '−' + Math.abs(d) : String(d)) + 'm';
   const pad = n => String(n).padStart(2, '0');
   const letter = i => 'ABCDEFGH'[i];
+  const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 
   // A verified excerpt from the novel: quotation marks plus a small part/chapter tag.
   function excerpt(q, cls, attrs) {
@@ -102,11 +133,13 @@
     if (f) { f.setAttribute('tabindex', '-1'); f.focus({ preventScroll: true }); }
   }
 
-  function setMood(mood, lift) {
+  // Light above grows with the whole ascent: 0 at the deepest chamber, 1 at the surface.
+  const lift = d => (d - DEEPEST) / (SURFACE - DEEPEST);
+  function setMood(mood, l) {
     document.body.dataset.mood = mood || '';
-    root.style.setProperty('--lift', Math.max(0, Math.min(1, lift)).toFixed(3));
+    root.style.setProperty('--lift', Math.max(0, Math.min(1, l)).toFixed(3));
   }
-  const depthLift = d => (d - META.startDepth) / (META.endDepth - META.startDepth); // −43→0, −31→1
+  const gaugeY = d => Math.min(1, Math.abs(d) / (Math.abs(DEEPEST) + 4));
 
   function countTo(el, from, to, ms, done) {
     if (reduced() || from === to) { el.textContent = fmt(to); done && done(); return; }
@@ -130,88 +163,99 @@
     }
     return pick === q.answer;
   }
-  const runInsight = run => SCORED.reduce((n, q) => n + (run.answers[q.id] && run.answers[q.id].correct ? POINTS : 0), 0);
-  const runCorrect = run => SCORED.filter(q => run.answers[q.id] && run.answers[q.id].correct).length;
+  const runInsight = (ch, run) => ch.scored.reduce((n, q) => n + (run.answers[q.id] && run.answers[q.id].correct ? POINTS : 0), 0);
+  const runCorrect = (ch, run) => ch.scored.filter(q => run.answers[q.id] && run.answers[q.id].correct).length;
 
-  function mastery() {
-    const rec = S.spite.record;
+  function mastery(ch) {
+    const st = peek(ch.id), rec = st.record;
     if (!rec) return null;
     const known = q => !!(rec.answers[q.id] && rec.answers[q.id].correct);
-    const regained = q => !known(q) && !!S.spite.recovered[q.id];
-    const concepts = U.concepts.map(c => {
-      const qs = SCORED.filter(q => q.concepts.includes(c));
+    const regained = q => !known(q) && !!st.recovered[q.id];
+    const concepts = ch.data.concepts.map(c => {
+      const qs = ch.scored.filter(q => q.concepts.includes(c));
       const k = qs.filter(known).length, r = qs.filter(regained).length;
       return { name: c, total: qs.length, known: k, regained: r,
                pct: Math.round(k / qs.length * 100), pctWith: Math.round((k + r) / qs.length * 100) };
     });
-    const correct = SCORED.filter(known).length;
-    return { concepts, correct, insight: correct * POINTS, regained: SCORED.filter(regained).length };
+    const correct = ch.scored.filter(known).length;
+    return { concepts, correct, insight: correct * POINTS, regained: ch.scored.filter(regained).length };
   }
 
-  function reviewGroups() {
-    const rec = S.spite.record;
+  function reviewGroups(ch) {
+    const st = peek(ch.id), rec = st.record;
     if (!rec) return [];
-    return REVIEW.map(g => {
+    return ch.review.map(g => {
       const missed = g.sources.filter(id => !(rec.answers[id] && rec.answers[id].correct));
-      const open = missed.filter(id => !S.spite.recovered[id]);
-      const st = S.spite.review[g.id] || { v: 0, exhausted: false, answered: null };
-      const status = !missed.length ? 'none' : !open.length ? 'recovered' : st.exhausted ? 'unresolved' : 'open';
-      return { g, missed, open, st, status };
+      const open = missed.filter(id => !st.recovered[id]);
+      const rs = st.review[g.id] || { v: 0, exhausted: false, answered: null };
+      const status = !missed.length ? 'none' : !open.length ? 'recovered' : rs.exhausted ? 'unresolved' : 'open';
+      return { g, missed, open, st: rs, status };
     }).filter(x => x.status !== 'none');
   }
-  const openReviews = () => reviewGroups().filter(x => x.status === 'open').length;
+  const openReviews = ch => reviewGroups(ch).filter(x => x.status === 'open').length;
 
   /* ── navigation ────────────────────────────────────────────── */
+  // views: map · play:<id> · results:<id> · review:<id> · reviewq:<id>:<group>
   function go(view, opts) {
     S.view = view;
     save();
     closeModal();
-    if (view === 'map') renderMap(opts);
-    else if (view === 'play') renderPlay();
-    else if (view === 'results') renderResults();
-    else if (view === 'review') renderReview();
-    else if (view.startsWith('reviewq:')) renderReviewQ(view.slice(8));
+    const [kind, id, gid] = view.split(':');
+    if (kind === 'map' || !playable(id)) { C = null; return renderMap(opts); }
+    C = CHAMBERS[id];
+    if (kind === 'play') renderPlay();
+    else if (kind === 'results') renderResults();
+    else if (kind === 'review') renderReview();
+    else if (kind === 'reviewq') renderReviewQ(gid);
     else renderMap();
   }
 
-  function startRun() {
-    S.run = { step: 0, answers: {}, interrupts: {}, startedAt: Date.now(), replay: !!S.spite.record };
+  function startRun(id) {
+    C = CHAMBERS[id];
+    cs().run = { chamber: id, step: 0, answers: {}, interrupts: {}, startedAt: Date.now(), replay: !!cs().record };
     skipActs();
-    go('play');
+    go('play:' + id);
   }
   function skipActs() {
-    while (S.run.step < STEPS.length && STEPS[S.run.step].type === 'act') S.run.step++;
+    const run = R();
+    while (run.step < C.steps.length && C.steps[run.step].type === 'act') run.step++;
   }
   function advance() {
-    S.run.step++;
+    R().step++;
     skipActs();
     save();
     renderPlay();
   }
 
   const depthAt = idx => {
-    let d = META.startDepth;
-    for (let i = 0; i < idx; i++) if (STEPS[i].type === 'rise') d = STEPS[i].to;
+    let d = C.meta.startDepth;
+    for (let i = 0; i < idx; i++) if (C.steps[i].type === 'rise') d = C.steps[i].to;
     return d;
   };
 
   /* ── MAP ───────────────────────────────────────────────────── */
   function renderMap(opts) {
     opts = opts || {};
-    const done = S.spite.completed;
-    setMood('map', depthLift(S.depth));
-    const rows = [...U.chambers].reverse().map(c => {
-      if (c.id === 'spite') return spiteRow(c, done);
-      const pulse = opts.ascent && c.id === 'wall';
-      return h('li', { class: 'ch locked' + (c.id === 'surface' ? ' surface' : '') + (pulse ? ' pulse' : ''), 'aria-disabled': 'true' },
-        h('span', { class: 'ch-n' }, c.n),
-        h('span', { class: 'ch-name' }, c.name),
-        h('span', { class: 'ch-lock' }, 'SEALED'));
+    setMood('map', lift(S.depth));
+    const cleared = U.chambers.filter(m => playable(m.id) && peek(m.id).completed);
+    const highest = cleared.length ? cleared[cleared.length - 1].id : null;
+    const from = opts.ascent ? U.chambers.findIndex(m => m.id === opts.ascent) : -1;
+    const next = from >= 0 ? U.chambers[from + 1] : null;
+
+    const rows = [];
+    [...U.chambers].reverse().forEach(m => {
+      if (m.id === highest) rows.push(h('li', { class: 'you' }, h('span', { class: 'you-line' }), h('span', null, 'YOU ARE HERE · ' + fmt(S.depth))));
+      if (playable(m.id)) { rows.push(chamberRow(m, next && next.id === m.id)); return; }
+      rows.push(h('li', { class: 'ch locked' + (m.id === 'surface' ? ' surface' : '') + (next && next.id === m.id ? ' pulse' : ''), 'aria-disabled': 'true' },
+        h('span', { class: 'ch-n' }, m.n),
+        h('span', { class: 'ch-name' }, m.name),
+        h('span', { class: 'ch-lock' }, 'SEALED')));
     });
-    if (done) {
-      const idx = rows.findIndex(r => r.classList.contains('spite'));
-      rows.splice(idx, 0, h('li', { class: 'you' }, h('span', { class: 'you-line' }), h('span', null, 'YOU ARE HERE · ' + fmt(S.depth))));
-    }
+
+    let note = null;
+    if (next) note = playable(next.id)
+      ? next.name + ' lies above.'
+      : next.name + ' is still sealed. The next chamber has not been opened yet.';
 
     const view = h('section', { class: 'map' },
       h('header', { class: 'map-head' },
@@ -219,41 +263,42 @@
         h('h1', { class: 'title', 'data-autofocus': true }, 'UNDERGROUND'),
         h('p', { class: 'now' }, h('span', { class: 'now-k' }, 'CURRENT DEPTH'), h('span', { class: 'num' }, fmt(S.depth)))),
       h('ol', { class: 'chambers', 'aria-label': 'Chambers, surface at top' }, rows),
-      opts.ascent ? h('p', { class: 'map-note' }, 'THE WALL is still sealed. The next chamber has not been opened yet.') : null,
+      note ? h('p', { class: 'map-note' }, note) : null,
       h('footer', { class: 'map-foot' },
         h('button', { class: 'link', onclick: openSettings }, 'SETTINGS')));
     mount(view);
   }
 
-  function spiteRow(c, done) {
-    const inRun = !!S.run;
-    const kick = h('p', { class: 'card-k' }, h('span', null, 'DEPTH ' + c.n), done ? h('span', { class: 'cleared' }, 'CLEARED') : null);
+  function chamberRow(m, isNext) {
+    const st = peek(m.id), done = st.completed, inRun = !!st.run;
+    const kick = h('p', { class: 'card-k' }, h('span', null, 'DEPTH ' + m.n), done ? h('span', { class: 'cleared' }, 'CLEARED') : null);
     const body = [
       kick,
-      h('h2', { class: 'card-title' }, c.name),
-      h('p', { class: 'card-q' }, c.question)
+      h('h2', { class: 'card-title' }, m.name),
+      h('p', { class: 'card-q' }, m.question)
     ];
     if (!done) {
-      body.push(h('button', { class: 'btn', onclick: () => (inRun ? go('play') : startRun()) }, inRun ? 'RESUME' : 'ENTER'));
-      return h('li', { class: 'ch spite open' }, h('div', { class: 'card' }, body));
+      body.push(h('button', { class: 'btn', onclick: () => (inRun ? go('play:' + m.id) : startRun(m.id)) }, inRun ? 'RESUME' : 'ENTER'));
+      return h('li', { class: 'ch open' + (isNext ? ' next' : ''), 'data-ch': m.id }, h('div', { class: 'card' }, body));
     }
     body.push(h('div', { class: 'card-actions' },
-      h('button', { class: 'btn ghost', onclick: openFound }, 'TOUCH THE SEAM'),
-      inRun ? h('button', { class: 'btn ghost', onclick: () => go('play') }, 'RESUME DESCENT') : null));
-    return h('li', { class: 'ch spite open done' },
-      h('button', { class: 'fissure', 'aria-label': 'The seam of light in SPITE', onclick: openFound }, h('span')),
+      h('button', { class: 'btn ghost', onclick: () => openFound(m.id) }, 'TOUCH THE SEAM'),
+      inRun ? h('button', { class: 'btn ghost', onclick: () => go('play:' + m.id) }, 'RESUME DESCENT') : null));
+    return h('li', { class: 'ch open done', 'data-ch': m.id },
+      h('button', { class: 'fissure', 'aria-label': 'The seam of light in ' + m.name, onclick: () => openFound(m.id) }, h('span')),
       h('div', { class: 'card' }, body));
   }
 
-  function openFound() {
-    const n = openReviews();
+  function openFound(id) {
+    const ch = CHAMBERS[id];
+    const n = openReviews(ch);
     modal(h('div', { class: 'sheet found' },
       h('p', { class: 'kicker' }, 'YOU FOUND'),
-      h('blockquote', { class: 'found-q', 'data-autofocus': true }, CH.found.lines.map(l => h('span', null, l))),
+      h('blockquote', { class: 'found-q', 'data-autofocus': true }, ch.data.found.lines.map(l => h('span', null, l))),
       h('div', { class: 'stack' },
-        h('button', { class: 'btn', onclick: () => { closeModal(); startRun(); } }, 'REENTER SPITE'),
-        h('button', { class: 'btn ghost', onclick: () => go('review') }, n ? 'REVIEW MISREADS · ' + n : 'REVIEW MISREADS'),
-        h('button', { class: 'link', onclick: () => go('results') }, 'WHAT YOU UNDERSTAND')),
+        h('button', { class: 'btn', onclick: () => { closeModal(); startRun(id); } }, 'REENTER ' + ch.meta.name),
+        h('button', { class: 'btn ghost', onclick: () => go('review:' + id) }, n ? 'REVIEW MISREADS · ' + n : 'REVIEW MISREADS'),
+        h('button', { class: 'link', onclick: () => go('results:' + id) }, 'WHAT YOU UNDERSTAND')),
       h('button', { class: 'x', 'aria-label': 'Close', onclick: closeModal }, '×')));
   }
 
@@ -269,7 +314,7 @@
   function confirmReset() {
     modal(h('div', { class: 'sheet' },
       h('p', { class: 'kicker blood' }, 'RESET PROGRESS'),
-      h('p', { class: 'sheet-p', 'data-autofocus': true }, 'This erases every answer, your Insight, review progress and depth. You return to ' + fmt(META.startDepth) + '. This cannot be undone.'),
+      h('p', { class: 'sheet-p', 'data-autofocus': true }, 'This erases every answer, your Insight, review progress and depth in every chamber. You return to ' + fmt(DEEPEST) + '. This cannot be undone.'),
       h('div', { class: 'stack' },
         h('button', { class: 'btn danger', onclick: () => {
           try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
@@ -294,38 +339,39 @@
 
   /* ── PLAY ──────────────────────────────────────────────────── */
   function playBar(step, opts) {
-    const run = S.run;
-    const answered = SCORED.filter(q => run.answers[q.id]).length;
-    const qn = step.type === 'question' && step.scored ? step.n : Math.min(TOTAL, answered);
-    return h('header', { class: 'bar' + (opts && opts.hide ? ' hide' : '') },
+    const run = R();
+    const answered = C.scored.filter(q => run.answers[q.id]).length;
+    const qn = step.type === 'question' && step.scored ? step.n : Math.min(C.total, answered);
+    return h('header', { class: 'bar' },
       h('button', { class: 'bar-back', onclick: () => go('map'), 'aria-label': 'Return to map (progress is saved)' }, '← MAP'),
       h('div', { class: 'bar-mid' },
-        h('span', { class: 'bar-ch' }, 'SPITE'),
+        h('span', { class: 'bar-ch' }, C.meta.name),
         h('span', { class: 'bar-sep' }, '·'),
-        h('span', { class: 'bar-count' }, pad(qn) + ' / ' + TOTAL)),
+        h('span', { class: 'bar-count' }, pad(qn) + ' / ' + C.total)),
       h('div', { class: 'bar-right' },
-        h('span', { class: 'bar-ins' }, h('small', null, 'INSIGHT '), runInsight(run)),
+        h('span', { class: 'bar-ins' }, h('small', null, 'INSIGHT '), runInsight(C, run)),
         h('span', { class: 'bar-depth' }, fmt(opts && opts.depth != null ? opts.depth : depthAt(step.i)))),
-      h('div', { class: 'bar-prog', style: '--p:' + (answered / TOTAL) }));
+      h('div', { class: 'bar-prog', style: '--p:' + (answered / C.total) }));
   }
 
   function gauge(depth) {
     // vertical depth instrument (desktop); surface at top
-    const y = Math.min(1, Math.abs(depth) / 45);
     return h('div', { class: 'gauge', 'aria-hidden': 'true' },
       h('span', { class: 'gauge-top' }, 'SURFACE'),
       h('span', { class: 'gauge-line' }),
-      h('span', { class: 'gauge-mark', style: '--y:' + y }, h('i'), h('b', null, fmt(depth))));
+      h('span', { class: 'gauge-mark', style: '--y:' + gaugeY(depth) }, h('i'), h('b', null, fmt(depth))));
   }
 
   function renderPlay() {
-    const run = S.run;
+    const run = R();
     if (!run) return go('map');
-    const step = STEPS[run.step];
-    if (!step) return go('results');
-    const answered = SCORED.filter(q => run.answers[q.id]).length;
-    const warm = step.act === 6;
-    setMood(warm ? 'warm' : 'play', Math.max(depthLift(depthAt(step.i)), answered / TOTAL * 0.9));
+    const step = C.steps[run.step];
+    if (!step) return go('results:' + C.id);
+    const answered = C.scored.filter(q => run.answers[q.id]).length;
+    // light grows through the chamber's twelve metres as questions are answered
+    const d = depthAt(step.i), span = C.meta.endDepth - C.meta.startDepth;
+    const mood = (C.data.moods && C.data.moods[step.act]) || 'play';
+    setMood(mood, lift(Math.max(d, C.meta.startDepth + span * answered / C.total * 0.9)));
 
     switch (step.type) {
       case 'question': return renderQuestion(step);
@@ -342,9 +388,9 @@
   function actKicker(step) {
     // animate the act label only on the first screen of a new act
     let prev = step.i - 1;
-    while (prev >= 0 && STEPS[prev].type === 'act') prev--;
-    const fresh = prev < 0 || STEPS[prev].act !== step.act;
-    return h('p', { class: 'act' + (fresh ? ' act-new' : '') }, h('span', null, U.acts[step.act]));
+    while (prev >= 0 && C.steps[prev].type === 'act') prev--;
+    const isNew = prev < 0 || C.steps[prev].act !== step.act;
+    return h('p', { class: 'act' + (isNew ? ' act-new' : '') }, h('span', null, C.data.acts[step.act]));
   }
 
   function frame(step, inner, opts) {
@@ -367,7 +413,7 @@
   */
   function renderQuestion(q, opts) {
     opts = opts || {};
-    const store = opts.store || S.run.answers;
+    const store = opts.store || R().answers;
     const answers = h('div', { class: 'answers' });
     const bar = h('div', { class: 'fb-bar', role: 'status', 'aria-live': 'polite' });
     const panel = h('div', { class: 'fb-panel' });
@@ -418,12 +464,12 @@
 
   // header insight and progress, updated in place
   function refreshBar() {
-    const run = S.run;
+    const run = R();
     if (!run) return;
     const ins = $app.querySelector('.bar-ins');
-    if (ins) ins.lastChild.textContent = runInsight(run);
+    if (ins) ins.lastChild.textContent = runInsight(C, run);
     const prog = $app.querySelector('.bar-prog');
-    if (prog) prog.style.setProperty('--p', SCORED.filter(q => run.answers[q.id]).length / TOTAL);
+    if (prog) prog.style.setProperty('--p', C.scored.filter(q => run.answers[q.id]).length / C.total);
   }
 
   function buildChoice(q, slot, commit) {
@@ -574,6 +620,7 @@
 
   function renderInterrupt(step) {
     setMood('under', 0);
+    const run = R();
     const reply = h('div', { class: 'um-reply', 'aria-live': 'polite' });   // reserved; filled in place
     const opts = step.responses.map((r, i) => h('button', {
       class: 'um-opt', style: '--k:' + i, onclick: () => choose(i)
@@ -595,14 +642,14 @@
         h('button', { class: 'btn ghost', onclick: advance }, 'CONTINUE'));
     };
     const choose = i => {
-      if (S.run.interrupts[step.id] != null) return;
-      S.run.interrupts[step.id] = i; S.spite.interrupts[step.id] = i; save();
+      if (run.interrupts[step.id] != null) return;
+      run.interrupts[step.id] = i; cs().interrupts[step.id] = i; save();
       show(i);
     };
     mount(h('div', { class: 'play under' },
       h('button', { class: 'bar-back ghosted', onclick: () => go('map'), 'aria-label': 'Return to map' }, '← MAP'),
       h('div', { class: 'col' }, view)));
-    if (S.run.interrupts[step.id] != null) show(S.run.interrupts[step.id]);
+    if (run.interrupts[step.id] != null) show(run.interrupts[step.id]);
   }
 
   function renderRise(step) {
@@ -614,7 +661,7 @@
     const view = h('article', { class: 'rise' + (step.final ? ' final' : '') },
       h('p', { class: 'kicker' }, step.final ? 'ASCENT' : 'RISING'),
       num,
-      h('div', { class: 'rise-shaft' }, h('span', { class: 'rise-mark', style: '--from:' + Math.abs(from) / 45 + ';--to:' + Math.abs(to) / 45 })),
+      h('div', { class: 'rise-shaft' }, h('span', { class: 'rise-mark', style: '--from:' + gaugeY(from) + ';--to:' + gaugeY(to) })),
       step.final ? h('p', { class: 'rise-sub' }, fmt(from) + ' → ' + fmt(to)) : null,
       btn);
     mount(frame(step, view, { cls: 'bare', depth: to }));
@@ -626,41 +673,41 @@
     }, reduced() ? 0 : 350);
   }
 
-  function renderClear(step) {
+  function renderClear() {
     completeRun();
-    setMood('dawn', 1);
+    setMood('dawn', lift(C.meta.endDepth) + 0.08);
     mount(h('div', { class: 'play bare' },
       h('div', { class: 'col' }, h('article', { class: 'clear' },
         h('span', { class: 'clear-seam', 'aria-hidden': 'true' }),
-        h('p', { class: 'kicker' }, 'DEPTH 05 · ', h('span', { class: 'nocase' }, fmt(META.endDepth))),
-        h('h1', { class: 'clear-t focus' }, 'SPITE CLEARED'),
-        h('button', { class: 'btn', onclick: () => go('results') }, 'WHAT YOU UNDERSTAND')))));
+        h('p', { class: 'kicker' }, 'DEPTH ' + C.meta.n + ' · ', h('span', { class: 'nocase' }, fmt(C.meta.endDepth))),
+        h('h1', { class: 'clear-t focus' }, C.meta.name + ' CLEARED'),
+        h('button', { class: 'btn', onclick: () => go('results:' + C.id) }, 'WHAT YOU UNDERSTAND')))));
   }
 
   function completeRun() {
-    const run = S.run;
+    const st = cs(), run = st.run;
     if (!run) return;
     const answers = {};
-    SCORED.forEach(q => { answers[q.id] = run.answers[q.id] || { pick: null, correct: false }; });
-    if (!S.spite.record) S.spite.record = { answers, completedAt: Date.now() };
-    S.spite.completed = true;
-    S.spite.completedAt = S.spite.completedAt || Date.now();
-    S.spite.runs = (S.spite.runs || 0) + 1;
-    S.depth = META.endDepth;
-    S.lastRun = { correct: runCorrect(run), insight: runInsight(run), replay: !!run.replay, at: Date.now() };
-    S.run = null;
+    C.scored.forEach(q => { answers[q.id] = run.answers[q.id] || { pick: null, correct: false }; });
+    if (!st.record) st.record = { answers, completedAt: Date.now() };
+    st.completed = true;
+    st.completedAt = st.completedAt || Date.now();
+    st.runs = (st.runs || 0) + 1;
+    S.depth = Math.max(S.depth, C.meta.endDepth);
+    st.lastRun = { correct: runCorrect(C, run), insight: runInsight(C, run), replay: !!run.replay, at: Date.now() };
+    st.run = null;
     save();
   }
 
   /* ── RESULTS ───────────────────────────────────────────────── */
   function renderResults() {
-    const m = mastery();
+    const m = mastery(C);
     if (!m) return go('map');
-    setMood('dawn', 1);
-    const last = S.lastRun;
-    const n = openReviews();
+    setMood('dawn', lift(C.meta.endDepth) + 0.08);
+    const last = cs().lastRun;
+    const n = openReviews(C);
     const view = h('section', { class: 'results' },
-      h('p', { class: 'kicker' }, 'SPITE · ', h('span', { class: 'nocase' }, fmt(META.endDepth))),
+      h('p', { class: 'kicker' }, C.meta.name + ' · ', h('span', { class: 'nocase' }, fmt(C.meta.endDepth))),
       h('h1', { class: 'res-t' }, 'WHAT YOU UNDERSTAND'),
       h('ul', { class: 'mastery' }, m.concepts.map((c, i) => h('li', { style: '--d:' + i },
         h('div', { class: 'm-row' },
@@ -671,25 +718,25 @@
           h('span', { class: 'm-reg', style: '--x:' + c.pct / 100 + ';--w:' + (c.pctWith - c.pct) / 100 })),
         h('p', { class: 'm-sub' }, c.known + ' of ' + c.total + (c.regained ? ' · ' + c.regained + ' recovered in review' : ''))))),
       h('div', { class: 'tally' },
-        h('p', null, h('b', null, m.correct + ' / ' + TOTAL), h('span', null, 'FIRST-ATTEMPT CORRECT')),
-        h('p', null, h('b', null, m.insight + ' / ' + MAX), h('span', null, 'INSIGHT'))),
+        h('p', null, h('b', null, m.correct + ' / ' + C.total), h('span', null, 'FIRST-ATTEMPT CORRECT')),
+        h('p', null, h('b', null, m.insight + ' / ' + C.max), h('span', null, 'INSIGHT'))),
       last && last.replay ? h('p', { class: 'res-note' },
-        'This descent: ' + last.correct + ' / ' + TOTAL + ' first-attempt. Your record stays from your first descent. Misreads are recovered only through review.') : null,
+        'This descent: ' + last.correct + ' / ' + C.total + ' first-attempt. Your record stays from your first descent. Misreads are recovered only through review.') : null,
       m.regained ? h('p', { class: 'res-note' }, m.regained + ' misread' + (m.regained > 1 ? 's' : '') + ' recovered in review. Insight stays as first earned.') : null,
       h('div', { class: 'stack' },
-        h('button', { class: 'btn', onclick: () => go('map', { ascent: true }) }, 'CONTINUE ASCENT'),
-        h('button', { class: 'btn ghost', onclick: () => go('review') }, n ? 'REVIEW MISREADS · ' + n : 'REVIEW MISREADS'),
-        h('button', { class: 'btn ghost', onclick: startRun }, 'REENTER SPITE')));
+        h('button', { class: 'btn', onclick: () => go('map', { ascent: C.id }) }, 'CONTINUE ASCENT'),
+        h('button', { class: 'btn ghost', onclick: () => go('review:' + C.id) }, n ? 'REVIEW MISREADS · ' + n : 'REVIEW MISREADS'),
+        h('button', { class: 'btn ghost', onclick: () => startRun(C.id) }, 'REENTER ' + C.meta.name)));
     mount(h('div', { class: 'page' }, h('div', { class: 'col' }, view)));
   }
 
   /* ── REVIEW MISREADS ───────────────────────────────────────── */
-  function actOf(qid) { return 'ACT ' + ['I', 'II', 'III', 'IV', 'V', 'VI'][Q[qid].act - 1]; }
+  const actOf = qid => 'ACT ' + ROMAN[C.Q[qid].act - 1];
 
   function renderReview() {
-    if (!S.spite.record) return go('map');
-    setMood('play', depthLift(S.depth));
-    const groups = reviewGroups();
+    if (!cs().record) return go('map');
+    setMood('play', lift(S.depth));
+    const groups = reviewGroups(C);
     const list = groups.map(x => {
       const acts = [...new Set(x.missed.map(actOf))].join(', ');
       const status = { open: 'A NEW ANGLE', recovered: 'RECOVERED', unresolved: 'STILL OPEN' }[x.status];
@@ -699,12 +746,12 @@
         h('span', { class: 'rv-s' }, status)
       ];
       return x.status === 'open'
-        ? h('li', null, h('button', { class: 'rv open', onclick: () => go('reviewq:' + x.g.id) }, inner))
+        ? h('li', null, h('button', { class: 'rv open', onclick: () => go('reviewq:' + C.id + ':' + x.g.id) }, inner))
         : h('li', null, h('div', { class: 'rv ' + x.status }, inner));
     });
     const view = h('section', { class: 'review' },
       h('button', { class: 'bar-back', onclick: () => go('map') }, '← MAP'),
-      h('p', { class: 'kicker' }, 'SPITE'),
+      h('p', { class: 'kicker' }, C.meta.name),
       h('h1', { class: 'res-t' }, 'REVIEW MISREADS'),
       h('p', { class: 'rv-intro' }, 'Not the same questions. The same ideas, from another angle. Answer correctly on the first try to recover mastery.'),
       groups.length
@@ -713,53 +760,63 @@
       groups.some(x => x.status === 'unresolved')
         ? h('p', { class: 'res-note' }, 'An idea marked STILL OPEN has used all its current angles. More will come with the full game.') : null,
       h('div', { class: 'stack' },
-        h('button', { class: 'btn ghost', onclick: () => go('results') }, 'WHAT YOU UNDERSTAND')));
+        h('button', { class: 'btn ghost', onclick: () => go('results:' + C.id) }, 'WHAT YOU UNDERSTAND')));
     mount(h('div', { class: 'page' }, h('div', { class: 'col' }, view)));
   }
 
   function renderReviewQ(gid) {
-    const g = REVIEW.find(x => x.id === gid);
-    if (!g || !S.spite.record) return go('review');
-    const st = S.spite.review[gid] = S.spite.review[gid] || { v: 0, exhausted: false, answered: null };
-    const shownV = st.answered ? st.answered.v : st.v;
-    const variant = g.variants[shownV];
-    if (!variant) return go('review');
-    setMood('play', depthLift(S.depth));
+    const st = cs();
+    const g = C.review.find(x => x.id === gid);
+    if (!g || !st.record) return go('review:' + C.id);
+    const rs = st.review[gid] = st.review[gid] || { v: 0, exhausted: false, answered: null };
+    const variant = g.variants[rs.answered ? rs.answered.v : rs.v];
+    if (!variant) return go('review:' + C.id);
+    setMood('play', lift(S.depth));
     const q = {
       id: gid, kind: 'choice', label: 'A NEW ANGLE', scored: false, quotes: variant.quotes,
       prompt: variant.prompt, options: variant.options, answer: variant.answer,
       right: { label: 'RECOVERED', body: variant.right }, wrong: { body: variant.wrong }
     };
     const store = {};
-    if (st.answered) store[gid] = st.answered;
+    if (rs.answered) store[gid] = rs.answered;
     renderQuestion(q, {
       review: true,
       store,
       kicker: h('p', { class: 'act' }, h('span', null, 'REVIEW · ' + g.concept)),
       onAnswer: (correct) => {
-        st.answered = { v: st.v, pick: store[gid].pick, correct, at: Date.now() };
+        rs.answered = { v: rs.v, pick: store[gid].pick, correct, at: Date.now() };
         if (correct) g.sources.forEach(id => {
-          const a = S.spite.record.answers[id];
-          if (!(a && a.correct)) S.spite.recovered[id] = true;
+          const a = st.record.answers[id];
+          if (!(a && a.correct)) st.recovered[id] = true;
         });
-        else { st.v++; if (st.v >= g.variants.length) st.exhausted = true; }
+        else { rs.v++; if (rs.v >= g.variants.length) rs.exhausted = true; }
       },
-      next: () => { st.answered = null; save(); go('review'); },
+      next: () => { rs.answered = null; save(); go('review:' + C.id); },
       nextLabel: 'BACK TO MISREADS',
-      // read after onAnswer has updated st, so the note reflects this answer
-      scoreNote: () => !st.answered ? '' : st.answered.correct ? 'MASTERY RECOVERED'
-        : st.exhausted ? 'STILL OPEN' : 'ANOTHER ANGLE WAITS',
+      // read after onAnswer has updated rs, so the note reflects this answer
+      scoreNote: () => !rs.answered ? '' : rs.answered.correct ? 'MASTERY RECOVERED'
+        : rs.exhausted ? 'STILL OPEN' : 'ANOTHER ANGLE WAITS',
       wrap: art => h('div', { class: 'page' }, h('div', { class: 'col' },
-        h('button', { class: 'bar-back', onclick: () => go('review') }, '← MISREADS'), art))
+        h('button', { class: 'bar-back', onclick: () => go('review:' + C.id) }, '← MISREADS'), art))
     });
   }
 
   /* ── boot ──────────────────────────────────────────────────── */
-  const start = S.view || 'map';
-  if (start === 'play' && !S.run) go('map');
-  else if ((start === 'results' || start === 'review' || start.startsWith('reviewq:')) && !S.spite.record) go('map');
-  else go(start);
+  (function boot() {
+    const v = S.view || 'map';
+    const [kind, id] = v.split(':');
+    if (kind === 'map' || !playable(id)) return go('map');
+    const st = peek(id);
+    if (kind === 'play' && !st.run) return go('map');
+    if (kind !== 'play' && !st.record) return go('map');
+    go(v);
+  })();
 
-  // test hook (harmless in production): lets automated checks read state
-  window.__underground = { state: () => JSON.parse(JSON.stringify(S)), steps: STEPS, total: TOTAL };
+  // test hook (harmless in production): lets automated checks read state and content
+  window.__underground = {
+    state: () => JSON.parse(JSON.stringify(S)),
+    current: () => C && C.id,
+    chamber: id => ({ steps: CHAMBERS[id].steps, total: CHAMBERS[id].total }),
+    playable: () => Object.keys(CHAMBERS)
+  };
 })();

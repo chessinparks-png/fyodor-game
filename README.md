@@ -1,6 +1,6 @@
-# UNDERGROUND — SPITE prototype
+# UNDERGROUND
 
-A playable vertical slice of a philosophical learning game based on Dostoevsky's *Notes from Underground*. Only chamber 05, **SPITE**, is built.
+A philosophical learning game based on Dostoevsky's *Notes from Underground*, in eight chambers. Built so far: **01 THE NOTE FROM BELOW** and **05 SPITE**; the rest are sealed on the map.
 
 ## Run
 
@@ -10,8 +10,11 @@ Open `index.html` in a browser. There is no build step, no server and no network
 
 - `index.html` — the page shell
 - `styles.css` — all visual design (system fonts only, so it works offline)
-- `content.js` — every question, feedback line, interruption and review variant, as data
+- `content.js` — the shared map, depth ladder, and the chamber content schema
+- `chambers/<id>.js` — one file per chamber: questions, feedback, interruptions, review variants
 - `app.js` — the engine: map, play loop, scoring, results, review and localStorage
+
+To add a chamber, write `chambers/<id>.js` following the schema in `content.js` and add a `<script>` tag for it in `index.html` before `app.js`. A chamber becomes playable as soon as its file is loaded.
 - `tools/verify_quotes.py` — checks every quotation in `content.js` against the novel
 
 ## Sources

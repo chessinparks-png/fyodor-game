@@ -22,6 +22,8 @@ AUTHORED = {
     'If you understood your own interest, you’d see a doctor.',
     'So spite is just irrationality.',
     'Someone who harms himself simply hasn’t understood his interests yet.',
+    'Dostoevsky wrote this, so these are Dostoevsky’s opinions.',
+    'If he admits he lies, nothing he says counts.',
 }
 
 
@@ -75,7 +77,11 @@ def where(pos, spans):
 
 
 def content():
-    js = "global.window={};require('./content.js');process.stdout.write(JSON.stringify(window.UNDERGROUND))"
+    # load content.js and every chamber file, in the order index.html lists them
+    html = open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
+    files = [f for f in re.findall(r'<script src="([^"]+)"', html) if f != 'app.js']
+    js = ("global.window={};" + "".join("require('./%s');global.UNDERGROUND=window.UNDERGROUND;" % f for f in files)
+          + "process.stdout.write(JSON.stringify(window.UNDERGROUND.content))")
     return json.loads(subprocess.check_output(['node', '-e', js], cwd=ROOT))
 
 
@@ -97,7 +103,7 @@ def main():
     text, spans = novel()
     data = content()
     excerpts, strings = [], []
-    walk(data, 'UNDERGROUND', excerpts, strings)
+    walk(data, 'content', excerpts, strings)
     fails = 0
 
     for path, q in excerpts:
@@ -125,7 +131,10 @@ def main():
         for frag in re.findall(r'“([^”]+)”', s):
             if frag in AUTHORED:
                 continue
-            if norm(frag).rstrip('.,!?') not in text:
+            f = norm(frag).rstrip('.,!?')
+            # tiles and headlines are set in capitals; compare those case-insensitively
+            found = f.lower() in text.lower() if f.isupper() else f in text
+            if not found:
                 print(f'FAIL  inline quote not in novel  {path}: “{frag}”')
                 fails += 1
             else:
