@@ -357,122 +357,127 @@
 
   /* questions */
   const HOLD_MS = 1200;   // a miss registers before the best reading appears
-  let justAnswered = null;
 
+  /*
+    Answering never re-renders or scrolls the page. The question is built once;
+    an answer only changes classes on the existing options and fills two regions
+    that were reserved when the question was drawn:
+      .fb-bar   — the verdict line and CONTINUE, sticky at the viewport bottom
+      .fb-panel — fixed-height explanation area that scrolls internally
+  */
   function renderQuestion(q, opts) {
     opts = opts || {};
     const store = opts.store || S.run.answers;
-    const ans = store[q.id];
-    const holding = !!(ans && !ans.correct && justAnswered === q.id);
-    const view = h('article', { class: 'q' + (q.voice ? ' voiced' : '') + (q.final ? ' final' : '') + (holding ? ' hold' : '') },
+    const answers = h('div', { class: 'answers' });
+    const bar = h('div', { class: 'fb-bar', role: 'status', 'aria-live': 'polite' });
+    const panel = h('div', { class: 'fb-panel' });
+    const view = h('article', { class: 'q' + (q.voice ? ' voiced' : '') + (q.final ? ' final' : '') },
       opts.review ? opts.kicker : actKicker(q),
       h('p', { class: 'q-type' }, h('span', null, q.label), q.scored === false ? h('em', null, 'not scored') : null),
       q.quotes ? h('div', { class: 'quotes' }, q.quotes.map((t, i) => excerpt(t, '', { style: '--d:' + i }))) : null,
       q.speech ? h('div', { class: 'speech' }, h('p', { class: 'um-label' }, 'UNDERGROUND MAN'), excerpt(q.speech, 'bare')) : null,
       q.lines ? h('div', { class: 'lines' }, q.lines.map((t, i) => h('p', { style: '--d:' + i }, t))) : null,
       h('div', { class: 'prompt focus' }, q.prompt.map(p => h('p', null, p))),
-      q.hint && !ans ? h('p', { class: 'hint' }, q.hint) : null,
-      h('div', { class: 'answers' }),
-      h('div', { class: 'fb-slot', 'aria-live': 'polite' }));
+      q.hint ? h('p', { class: 'hint' }, q.hint) : null,   // kept after answering, so nothing above the options moves
+      answers, bar, panel);
 
-    const slot = view.querySelector('.answers');
-    const fbSlot = view.querySelector('.fb-slot');
+    const show = (ans, fresh) => {
+      const hold = fresh && !ans.correct;
+      view.classList.add('answered');
+      view.classList.toggle('hold', hold);
+      mark(ans);
+      fillFeedback(q, ans, opts, bar, panel);
+      panel.scrollTop = 0;
+      if (!opts.review) refreshBar();
+      const release = () => {
+        view.classList.remove('hold');
+        if (q.final) answers.classList.add('withdraw');     // Q24: unchosen misreadings fade in place
+        const btn = bar.querySelector('.btn');
+        if (fresh && btn && answers.contains(document.activeElement || null)) btn.focus({ preventScroll: true });
+      };
+      if (hold) setTimeout(release, HOLD_MS);
+      else if (fresh) setTimeout(release, reduced() ? 0 : 400);
+      else release();
+    };
     const commit = pick => {
       if (store[q.id]) return;                      // first attempt only — never re-scored
       const correct = isCorrect(q, pick);
       store[q.id] = { pick, correct, at: Date.now() };
       if (opts.onAnswer) opts.onAnswer(correct, pick);
       save();                                        // persisted before any feedback is shown
-      justAnswered = q.id;
-      rerender();
-    };
-    const rerender = () => {
-      if (opts.review) return opts.rerender();
-      const y = window.scrollY;
-      renderQuestion(q, opts);
-      window.scrollTo(0, y);
-      const fb = $app.querySelector('.fb');
-      if (fb && !reduced()) fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      else if (fb) fb.scrollIntoView({ block: 'nearest' });
+      show(store[q.id], true);
     };
 
-    if (q.kind === 'choice') buildChoice(q, slot, ans, commit);
-    else if (q.kind === 'multi') buildMulti(q, slot, ans, commit);
-    else if (q.kind === 'sequence') buildSequence(q, slot, ans, commit);
+    const mark = q.kind === 'multi' ? buildMulti(q, answers, commit)
+      : q.kind === 'sequence' ? buildSequence(q, answers, commit)
+      : buildChoice(q, answers, commit);
 
-    if (ans) fbSlot.append(feedback(q, ans, opts));
-
-    const node = opts.review ? view : frame(q, view, { cls: q.voice ? 'voice' : '' });
-    mount(node, { keepScroll: !!ans });
-    if (!ans) return;
-    justAnswered = null;
-    const collapse = () => {                        // Q24: the unchosen misreadings withdraw
-      const a = view.querySelector('.answers');
-      if (q.final && a) a.classList.add('collapse');
-    };
-    if (holding) {
-      setTimeout(() => {
-        view.classList.remove('hold');
-        const btn = view.querySelector('.fb-foot .btn');
-        if (btn) btn.focus({ preventScroll: true });
-        collapse();
-      }, HOLD_MS);
-    } else if (q.final) {
-      setTimeout(collapse, reduced() ? 0 : 400);
-    }
+    mount(opts.wrap ? opts.wrap(view) : frame(q, view, { cls: q.voice ? 'voice' : '' }));
+    if (store[q.id]) show(store[q.id], false);
   }
 
-  // small typographic result tag inside an answered option
-  const tag = (text, cls) => h('span', { class: 'opt-tag' + (cls ? ' ' + cls : '') }, text);
+  // header insight and progress, updated in place
+  function refreshBar() {
+    const run = S.run;
+    if (!run) return;
+    const ins = $app.querySelector('.bar-ins');
+    if (ins) ins.lastChild.textContent = runInsight(run);
+    const prog = $app.querySelector('.bar-prog');
+    if (prog) prog.style.setProperty('--p', SCORED.filter(q => run.answers[q.id]).length / TOTAL);
+  }
 
-  function buildChoice(q, slot, ans, commit) {
+  function buildChoice(q, slot, commit) {
     slot.classList.add('opts', q.layout ? 'layout-' + q.layout : 'layout-list');
-    q.options.forEach((text, i) => {
-      let cls = 'opt', mark = null;
-      if (ans) {
-        if (i === ans.pick && ans.correct) { cls += ' hit chosen'; mark = tag('YOUR READING'); }
-        else if (i === ans.pick) { cls += ' miss chosen'; mark = tag('YOUR READING · MISREAD'); }
-        else if (i === q.answer) { cls += ' key'; mark = tag('BEST READING', 'late'); }
-        else cls += ' dim';
-      }
-      slot.append(h('button', {
-        class: cls, disabled: !!ans, 'aria-pressed': ans ? String(i === ans.pick) : null,
-        onclick: () => commit(i)
-      }, q.layout ? null : h('span', { class: 'opt-l' }, letter(i)), h('span', { class: 'opt-t' }, text, mark)));
+    const btns = q.options.map((text, i) => {
+      const b = h('button', { class: 'opt', onclick: () => commit(i) },
+        q.layout ? null : h('span', { class: 'opt-l' }, letter(i)), h('span', { class: 'opt-t' }, text));
+      slot.append(b);
+      return b;
+    });
+    return ans => btns.forEach((b, i) => {
+      b.disabled = true;
+      b.setAttribute('aria-pressed', String(i === ans.pick));
+      if (i === ans.pick) b.classList.add('chosen', ans.correct ? 'hit' : 'miss');
+      else b.classList.add(i === q.answer ? 'key' : 'dim');
     });
   }
 
-  function buildMulti(q, slot, ans, commit) {
+  function buildMulti(q, slot, commit) {
     slot.classList.add('opts', 'layout-list', 'multi');
-    const sel = new Set(ans ? ans.pick : []);
+    const sel = new Set();
     const confirm = h('button', { class: 'btn confirm', disabled: true, onclick: () => commit([...sel].sort()) }, 'CONFIRM');
-    q.options.forEach((text, i) => {
-      let cls = 'opt check', mark = null;
-      if (ans) {
-        const want = q.answer.includes(i), got = sel.has(i);
-        if (want && got) { cls += ' hit chosen'; mark = tag('CORRECT'); }
-        else if (got) { cls += ' miss chosen'; mark = tag('MISREAD'); }
-        else if (want) { cls += ' key'; mark = tag('MISSED', 'late'); }
-        else cls += ' dim';
-      }
+    const btns = q.options.map((text, i) => {
       const b = h('button', {
-        class: cls, disabled: !!ans, role: 'checkbox', 'aria-checked': String(sel.has(i)),
+        class: 'opt check', role: 'checkbox', 'aria-checked': 'false',
         onclick: () => {
           sel.has(i) ? sel.delete(i) : sel.add(i);
           b.setAttribute('aria-checked', String(sel.has(i)));
           b.classList.toggle('on', sel.has(i));
           confirm.disabled = sel.size === 0;
         }
-      }, h('span', { class: 'opt-l box' }, letter(i)), h('span', { class: 'opt-t' }, text, mark));
-      if (sel.has(i) && !ans) b.classList.add('on');
+      }, h('span', { class: 'opt-l box' }, letter(i)), h('span', { class: 'opt-t' }, text));
       slot.append(b);
+      return b;
     });
-    if (!ans) slot.append(confirm);
+    slot.append(confirm);
+    return ans => {
+      const got = new Set(ans.pick);
+      btns.forEach((b, i) => {
+        const want = q.answer.includes(i), picked = got.has(i);
+        b.disabled = true;
+        b.classList.remove('on');
+        b.setAttribute('aria-checked', String(picked));
+        b.classList.add(want && picked ? 'hit' : picked ? 'miss' : want ? 'key' : 'dim');
+        if (picked) b.classList.add('chosen');
+      });
+      confirm.disabled = true;
+      confirm.classList.add('spent');                // hidden, but still holding its space
+    };
   }
 
-  function buildSequence(q, slot, ans, commit) {
+  function buildSequence(q, slot, commit) {
     slot.classList.add('seq');
-    const placed = ans ? [...ans.pick] : [];
+    let placed = [], result = null;
     const chain = h('ol', { class: 'chain' });
     const tray = h('div', { class: 'tray' });
     const confirm = h('button', { class: 'btn confirm', disabled: true, onclick: () => commit([...placed]) }, 'CONFIRM');
@@ -482,62 +487,62 @@
       for (let k = 0; k < q.tiles.length; k++) {
         const t = placed[k];
         if (t == null) { chain.append(h('li', { class: 'slot empty' }, h('span', { class: 'slot-n' }, k + 1))); continue; }
-        let cls = 'slot filled', mark = null;
-        if (ans) {
-          const inPlace = t === q.answer[k];
-          cls += inPlace ? ' hit' : ' miss';
-          mark = tag(inPlace ? 'IN PLACE' : 'OUT OF PLACE');
-        }
+        const cls = 'slot filled' + (result ? (t === q.answer[k] ? ' hit' : ' miss') : '');
         chain.append(h('li', { class: cls },
-          h('button', { class: 'tile placed', disabled: !!ans, 'aria-label': 'Remove ' + q.tiles[t],
+          h('button', { class: 'tile placed', disabled: !!result, 'aria-label': 'Remove ' + q.tiles[t],
             onclick: () => { placed.splice(k, 1); draw(); } },
-            h('span', { class: 'slot-n' }, k + 1), h('span', { class: 'tile-t' }, q.tiles[t]), mark)));
+            h('span', { class: 'slot-n' }, k + 1), h('span', { class: 'tile-t' }, q.tiles[t]))));
       }
       q.tiles.forEach((t, i) => {
         if (placed.includes(i)) return;
-        tray.append(h('button', { class: 'tile', disabled: !!ans, onclick: () => { placed.push(i); draw(); } }, t));
+        tray.append(h('button', { class: 'tile', disabled: !!result, onclick: () => { placed.push(i); draw(); } }, t));
       });
-      confirm.disabled = placed.length !== q.tiles.length;
+      confirm.disabled = !!result || placed.length !== q.tiles.length;
     };
     draw();
-    slot.append(chain);
-    if (!ans) slot.append(tray, confirm);
-    else if (!ans.correct) {
-      slot.append(h('div', { class: 'chain-key late' },
-        h('p', { class: 'kicker' }, 'THE CHAIN'),
-        h('p', { class: 'chain-line' }, q.answer.map((t, k) => [k ? h('span', { class: 'arr' }, '→') : null, h('span', null, q.tiles[t])]))));
-    }
+    slot.append(chain, tray, confirm);
+    return ans => {
+      result = ans;
+      placed = [...ans.pick];
+      draw();
+      confirm.classList.add('spent');
+    };
   }
 
-  function feedback(q, ans, opts) {
+  // Fill the reserved verdict bar and explanation panel.
+  function fillFeedback(q, ans, opts, bar, panel) {
     const r = ans.correct;
     const f = r ? q.right : q.wrong;
     const scored = !opts.review && q.scored;
     const next = opts.review ? opts.next : () => advance();
-    const nextLabel = opts.review ? opts.nextLabel : 'CONTINUE';
-    const points = opts.review ? opts.scoreNote
+    const points = opts.review ? opts.scoreNote()
       : !scored ? 'NOT SCORED'
       : r ? '+' + POINTS + ' INSIGHT' : '0 INSIGHT';
     const flavour = r && q.right.label && q.right.label !== 'INSIGHT' ? q.right.label : null;
-    let best = null;
-    if (!r && q.kind === 'choice') best = [letter(q.answer), q.options[q.answer]];
-    if (!r && q.kind === 'multi') best = [q.answer.map(letter).join(' · '), null];
-    return h('section', { class: 'fb ' + (r ? 'right' : 'wrong') },
-      h('div', { class: 'fb-result', role: 'status' },
+
+    const reading = which => {
+      if (q.kind === 'choice') return [h('span', { class: 'rd-l' }, letter(which)), h('span', { class: 'rd-t' }, q.options[which])];
+      if (q.kind === 'multi') return [h('span', { class: 'rd-t' }, which.length ? which.map(letter).join(' · ') : '—')];
+      return [h('span', { class: 'rd-t' }, which.map(t => q.tiles[t]).join(' → '))];
+    };
+
+    bar.className = 'fb-bar ' + (r ? 'right' : 'wrong');
+    bar.replaceChildren(
+      h('div', { class: 'fb-result' },
         h('span', { class: 'fb-verdict' }, r ? 'INSIGHT' : 'MISREAD'),
         h('span', { class: 'fb-points' }, points)),
+      h('button', { class: 'btn late', onclick: next }, opts.review ? opts.nextLabel : 'CONTINUE'));
+
+    panel.className = 'fb-panel fb ' + (r ? 'right' : 'wrong');
+    panel.replaceChildren(...[
+      r ? null : h('div', { class: 'rd rd-mine' }, h('span', { class: 'rd-k' }, 'YOUR READING · MISREAD'), reading(ans.pick)),
       flavour ? h('p', { class: 'fb-label' }, flavour) : null,
       q.headline ? h('p', { class: 'fb-head' }, q.headline) : null,
       f && f.body ? h('div', { class: 'fb-body' }, arr(f.body).map(t => h('p', null, t))) : null,
-      best ? h('div', { class: 'fb-best late' },
-        h('span', { class: 'fb-best-k' }, 'BEST READING'),
-        h('span', { class: 'fb-best-l' }, best[0]),
-        best[1] ? h('span', { class: 'fb-best-t' }, best[1]) : null) : null,
+      r ? null : h('div', { class: 'rd rd-best late' }, h('span', { class: 'rd-k' }, 'BEST READING'), reading(q.answer)),
       q.coda ? h('div', { class: 'coda' + (q.final ? ' coda-final' : '') }, q.coda.map((t, i) => h('p', { style: '--d:' + i }, t))) : null,
-      q.quote ? excerpt(q.quote, 'fb-quote') : null,
-      opts.review ? opts.extra : null,
-      h('div', { class: 'fb-foot late' },
-        h('button', { class: 'btn', 'data-autofocus': true, onclick: next }, nextLabel)));
+      q.quote ? excerpt(q.quote, 'fb-quote') : null
+    ].filter(Boolean));
   }
 
   /* reveals */
@@ -568,25 +573,36 @@
   }
 
   function renderInterrupt(step) {
-    const pick = S.run.interrupts[step.id];
     setMood('under', 0);
-    const chosen = pick != null ? step.responses[pick] : null;
-    const view = h('article', { class: 'um' + (chosen ? ' answered' : '') },
+    const reply = h('div', { class: 'um-reply', 'aria-live': 'polite' });   // reserved; filled in place
+    const opts = step.responses.map((r, i) => h('button', {
+      class: 'um-opt', style: '--k:' + i, onclick: () => choose(i)
+    }, r.text));
+    const view = h('article', { class: 'um' },
       h('p', { class: 'um-label' }, 'UNDERGROUND MAN'),
       typeof step.line === 'string'
         ? h('p', { class: 'um-line said-line focus' }, step.line)
         : h('div', { class: 'um-line focus' }, excerpt(step.line, 'bare')),
-      h('div', { class: 'um-resp' }, step.responses.map((r, i) => h('button', {
-        class: 'um-opt' + (chosen ? (i === pick ? ' said' : ' gone') : ''), style: '--k:' + i, disabled: !!chosen,
-        onclick: () => { S.run.interrupts[step.id] = i; S.spite.interrupts[step.id] = i; save(); renderInterrupt(step); }
-      }, r.text))),
-      chosen ? h('div', { class: 'um-reply', 'aria-live': 'polite' },
+      h('div', { class: 'um-resp' }, opts),
+      reply);
+    const show = pick => {
+      const chosen = step.responses[pick];
+      view.classList.add('answered');
+      opts.forEach((b, i) => { b.disabled = true; b.classList.add(i === pick ? 'said' : 'gone'); });
+      reply.replaceChildren(
         h('p', { class: 'said-line' }, chosen.reply),
         h('p', { class: 'um-aside' }, chosen.aside),
-        h('button', { class: 'btn ghost', 'data-autofocus': true, onclick: advance }, 'CONTINUE')) : null);
+        h('button', { class: 'btn ghost', onclick: advance }, 'CONTINUE'));
+    };
+    const choose = i => {
+      if (S.run.interrupts[step.id] != null) return;
+      S.run.interrupts[step.id] = i; S.spite.interrupts[step.id] = i; save();
+      show(i);
+    };
     mount(h('div', { class: 'play under' },
       h('button', { class: 'bar-back ghosted', onclick: () => go('map'), 'aria-label': 'Return to map' }, '← MAP'),
-      h('div', { class: 'col' }, view)), { keepScroll: !!chosen });
+      h('div', { class: 'col' }, view)));
+    if (S.run.interrupts[step.id] != null) show(S.run.interrupts[step.id]);
   }
 
   function renderRise(step) {
@@ -716,7 +732,6 @@
     };
     const store = {};
     if (st.answered) store[gid] = st.answered;
-    const more = st.answered && !st.answered.correct && !st.exhausted;
     renderQuestion(q, {
       review: true,
       store,
@@ -729,17 +744,14 @@
         });
         else { st.v++; if (st.v >= g.variants.length) st.exhausted = true; }
       },
-      rerender: () => renderReviewQ(gid),
       next: () => { st.answered = null; save(); go('review'); },
       nextLabel: 'BACK TO MISREADS',
-      scoreNote: st.answered ? (st.answered.correct ? 'MASTERY RECOVERED' : more ? 'ANOTHER ANGLE WAITS' : 'STILL OPEN') : '',
-      extra: null
+      // read after onAnswer has updated st, so the note reflects this answer
+      scoreNote: () => !st.answered ? '' : st.answered.correct ? 'MASTERY RECOVERED'
+        : st.exhausted ? 'STILL OPEN' : 'ANOTHER ANGLE WAITS',
+      wrap: art => h('div', { class: 'page' }, h('div', { class: 'col' },
+        h('button', { class: 'bar-back', onclick: () => go('review') }, '← MISREADS'), art))
     });
-    // renderQuestion mounted the bare article; wrap it in a page frame
-    const art = $app.firstChild;
-    const page = h('div', { class: 'page' }, h('div', { class: 'col' },
-      h('button', { class: 'bar-back', onclick: () => go('review') }, '← MISREADS'), art));
-    mount(page, { keepScroll: !!st.answered });
   }
 
   /* ── boot ──────────────────────────────────────────────────── */

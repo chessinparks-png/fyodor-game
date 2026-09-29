@@ -296,18 +296,17 @@ body[data-mood="warm"] .q-type { color: var(--amber); }
 .opts.layout-list { display: grid; border-top: 1px solid var(--line); }
 .opt {
   display: flex; gap: 1rem; align-items: baseline; text-align: left; width: 100%;
-  min-height: 3.5rem; padding: 1rem 0.25rem 1rem 0;
-  border-bottom: 1px solid var(--line);
+  min-height: 3.5rem; padding: 1rem 0.9rem;
+  border: 1px solid transparent; border-bottom-color: var(--line);
   color: var(--text);
-  transition: color .45s var(--ease), opacity .6s var(--ease), background-color .45s var(--ease), padding .45s var(--ease);
+  transition: color .45s var(--ease), opacity .6s var(--ease), background-color .45s var(--ease), border-color .45s var(--ease);
 }
 .opt-l { flex: none; width: 1.4rem; font: 500 0.7rem/1 var(--sans); letter-spacing: 0.1em; color: var(--dim); transform: translateY(-1px); }
 .opt-t { font-size: 1.02rem; line-height: 1.45; }
-.opt:hover:not(:disabled) { padding-left: 0.5rem; background: linear-gradient(90deg, rgba(221, 215, 203, 0.04), transparent); }
+.opt:hover:not(:disabled) { background: linear-gradient(90deg, rgba(221, 215, 203, 0.05), transparent); }
 .opt:hover:not(:disabled) .opt-l { color: var(--amber); }
 .opt.dim { opacity: 0.28; }
-/* answered states: a full hairline box in the result colour, plus a small tag */
-.opt.hit, .opt.miss, .opt.key { padding-left: 0.9rem; padding-right: 0.9rem; border: 1px solid transparent; margin: 0.35rem 0; }
+/* answered states change colour only — never size or position */
 .opt.hit { color: var(--day); border-color: var(--amber); background: rgba(201, 160, 106, 0.06); }
 .opt.hit .opt-l { color: var(--amber); }
 .opt.miss { color: var(--dim); border-color: var(--blood-hi); background: rgba(142, 58, 46, 0.08); }
@@ -322,7 +321,8 @@ body[data-mood="warm"] .q-type { color: var(--amber); }
 /* a miss registers first; the best reading appears after a short pause */
 .late { transition: opacity .7s var(--ease); }
 .q.hold .late { opacity: 0; visibility: hidden; }
-.q.hold .opt.key { color: var(--text); border-color: transparent; background: none; opacity: 0.28; transition: none; }
+.q.hold .opt.key { color: var(--text); border-color: transparent; border-bottom-color: var(--line); background: none; opacity: 0.28; transition: none; }
+.spent { visibility: hidden; }
 .q .opt.key { transition: border-color .7s var(--ease), opacity .7s var(--ease); }
 
 .layout-row, .layout-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
@@ -332,8 +332,7 @@ body[data-mood="warm"] .q-type { color: var(--amber); }
 }
 .layout-pair { grid-template-columns: 1fr; }
 .layout-pair .opt { letter-spacing: 0.02em; font: 400 1.1rem/1.4 var(--serif); padding: 1.2rem 1rem; }
-.layout-row .opt:hover:not(:disabled), .layout-pair .opt:hover:not(:disabled) { padding-left: 0.75rem; border-color: var(--amber); background: none; }
-.layout-pair .opt:hover:not(:disabled) { padding-left: 1rem; }
+.layout-row .opt:hover:not(:disabled), .layout-pair .opt:hover:not(:disabled) { border-color: var(--amber); background: none; }
 .layout-row .opt.hit, .layout-pair .opt.hit { border-color: var(--amber); }
 .layout-row .opt.miss, .layout-pair .opt.miss { border-color: var(--blood-hi); }
 .layout-row .opt.key, .layout-pair .opt.key { border-color: rgba(241, 238, 230, 0.55); }
@@ -370,38 +369,58 @@ body[data-mood="warm"] .q-type { color: var(--amber); }
 .chain-line .arr { color: var(--dim); margin: 0 0.6rem; }
 
 /* feedback */
-.fb { margin-top: 2.25rem; padding-top: 1.5rem; border-top: 1px solid var(--line-2); animation: rise-in 1s var(--ease) both; }
+.fb-bar {
+  position: sticky; bottom: 0; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  min-height: 4.75rem; margin-top: 1.5rem;
+  padding: 0.7rem 0 calc(0.7rem + env(safe-area-inset-bottom));
+  border-top: 1px solid transparent; pointer-events: none;
+}
+.q.answered .fb-bar {
+  pointer-events: auto; border-top-color: currentColor;
+  background: linear-gradient(to top, rgba(11, 10, 9, 0.97) 75%, rgba(11, 10, 9, 0.88));
+}
+body[data-mood="warm"] .q.answered .fb-bar { background: linear-gradient(to top, rgba(15, 11, 9, 0.97) 75%, rgba(15, 11, 9, 0.88)); }
+.fb-bar.right { color: var(--amber); }
+.fb-bar.wrong { color: var(--blood-hi); }
+.fb-bar .btn { min-height: 3rem; padding: 0 1.4rem; flex: none; }
+.fb-panel {
+  height: min(22rem, 48vh); height: min(22rem, 48dvh);
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 1.1rem 0 1.5rem;
+}
+.fb-panel > * { animation: appear .6s var(--ease) both; }
+.rd { display: grid; grid-template-columns: auto 1fr; gap: 0.45rem 0.8rem; align-items: baseline; padding: 0.8rem 0.9rem; border: 1px solid; margin-bottom: 1.1rem; }
+.rd-k { grid-column: 1 / -1; font: 500 0.6rem/1 var(--sans); letter-spacing: 0.22em; }
+.rd-l { font: 500 0.7rem/1 var(--sans); letter-spacing: 0.1em; }
+.rd-t { font-size: 0.98rem; line-height: 1.45; grid-column: auto; }
+.rd-t:only-of-type { grid-column: 1 / -1; }
+.rd-mine { border-color: var(--blood-hi); color: var(--dim); }
+.rd-mine .rd-k, .rd-mine .rd-l { color: var(--blood-hi); }
+.rd-best { border-color: rgba(241, 238, 230, 0.55); color: var(--text); margin: 1.2rem 0 0; }
+.rd-best .rd-k, .rd-best .rd-l { color: var(--day); }
 .fb.right { border-top-color: rgba(201, 160, 106, .45); }
 .fb.wrong { border-top-color: rgba(181, 84, 63, .55); }
 .fb-result {
-  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
-  padding-bottom: 0.9rem; margin-bottom: 1.1rem; border-bottom: 1px solid currentColor;
-  font: 500 0.78rem/1 var(--sans); letter-spacing: 0.24em; text-transform: uppercase;
+  display: flex; flex-direction: column; gap: 0.45rem;
+  font: 500 0.7rem/1 var(--sans); letter-spacing: 0.24em; text-transform: uppercase;
 }
 .fb-verdict { font-size: 1.05rem; letter-spacing: 0.3em; }
 .fb-points { font-variant-numeric: tabular-nums; }
-.fb.right .fb-result { color: var(--amber); }
-.fb.wrong .fb-result { color: var(--blood-hi); }
+
 .fb-label { color: var(--soft); margin-bottom: 0.9rem; }
-.fb-best { margin-top: 1.4rem; padding: 0.9rem 1rem; border: 1px solid rgba(241, 238, 230, 0.55); display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 0.9rem; align-items: baseline; }
-.fb-best-k { grid-column: 1 / -1; font: 500 0.6rem/1 var(--sans); letter-spacing: 0.22em; color: var(--day); }
-.fb-best-l { font: 500 0.7rem/1 var(--sans); letter-spacing: 0.1em; color: var(--day); }
-.fb-best-t { font-size: 1rem; line-height: 1.45; color: var(--text); }
 .fb-head { font: 500 0.95rem/1.4 var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--day); margin-bottom: 0.9rem; }
 .fb-body p { font: 400 1.15rem/1.5 var(--serif); color: var(--soft); }
 .fb-body p + p { margin-top: 0.35rem; }
 .fb.right .fb-body p { color: var(--text); }
 .coda { margin-top: 1.4rem; }
-.coda p { font: italic 400 1.3rem/1.4 var(--serif); color: var(--soft); animation: rise-in 1.2s var(--ease) calc(.3s + var(--d) * .9s) both; }
+.coda p { font: italic 400 1.3rem/1.4 var(--serif); color: var(--soft); animation: appear 1.2s var(--ease) calc(.3s + var(--d) * .9s) both; }
 .coda p + p { font: 500 0.95rem/1.4 var(--sans); font-style: normal; letter-spacing: 0.18em; color: var(--day); margin-top: 0.4rem; }
 .coda.coda-final p, .coda.coda-final p + p { font: italic 400 clamp(1.7rem, 7vw, 2.2rem)/1.25 var(--serif); letter-spacing: 0; color: var(--day); margin: 0; animation-delay: calc(1.1s + var(--d) * 1.1s); animation-duration: 1.8s; }
 .coda.coda-final { margin: 2rem 0 0.5rem; }
-.fb-foot { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; margin-top: 1.9rem; }
 
 /* Q24: the wrong answers withdraw */
-.final .answers .opt { max-height: 12rem; overflow: hidden; transition: max-height 1.4s var(--ease), opacity 1s var(--ease), padding 1.4s var(--ease), border-color 1s; }
-.final .answers.collapse .opt.dim { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; min-height: 0; border-color: transparent; }
-.final .answers.collapse .opt.key { color: var(--day); }
+.final .answers.withdraw .opt.dim { opacity: 0; visibility: hidden; transition: opacity 1.2s var(--ease), visibility 0s 1.2s; }
 
 /* reveals */
 .concept { padding-top: 0.5rem; }
@@ -467,9 +486,8 @@ body[data-mood="warm"] .q-type { color: var(--amber); }
 }
 .um-opt:hover:not(:disabled) { color: var(--day); }
 .um-opt.gone { opacity: 0.12; }
-.um-opt.said { color: var(--day); margin-left: 0; }
-.um.answered .um-opt { animation: none; }
-.um-reply { margin-top: 2.4rem; }
+.um-opt.said { color: var(--day); }
+.um-reply { margin-top: 2.4rem; min-height: 14rem; }
 .um-reply .said-line { margin: 0 0 1.1rem 1.2rem; font: italic 400 clamp(1.5rem, 6.5vw, 2rem)/1.25 var(--serif); color: var(--day); transform: rotate(0.5deg); animation: rise-in 1.4s var(--ease) .2s both; }
 .um-aside { color: var(--dim); font-size: 0.9rem; margin: 0 0 2.2rem; animation: fade 1s var(--ease) 1.2s both; }
 .um-reply .btn { animation: fade 1s var(--ease) 1.6s both; }
