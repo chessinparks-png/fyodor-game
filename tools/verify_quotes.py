@@ -24,6 +24,8 @@ AUTHORED = {
     'Someone who harms himself simply hasn’t understood his interests yet.',
     'Dostoevsky wrote this, so these are Dostoevsky’s opinions.',
     'If he admits he lies, nothing he says counts.',
+    'Think less, and you’ll be well.',
+    'Now that he understands his inertia, he can overcome it.',
 }
 
 
