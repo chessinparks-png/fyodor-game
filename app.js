@@ -26,6 +26,7 @@
   function fresh() {
     return {
       version: 1,
+      contentVersion: U.contentVersion,
       depth: META.startDepth,
       view: 'map',
       run: null,          // in-progress descent
@@ -46,7 +47,7 @@
       const raw = localStorage.getItem(KEY);
       if (raw) {
         const s = JSON.parse(raw);
-        if (s && s.version === 1 && s.spite) return s;
+        if (s && s.version === 1 && s.spite && s.contentVersion === U.contentVersion) return s;
       }
     } catch (e) { /* storage unavailable or corrupt: start clean */ }
     return fresh();
@@ -82,6 +83,13 @@
   const fmt = d => (d < 0 ? '−' + Math.abs(d) : String(d)) + 'm';
   const pad = n => String(n).padStart(2, '0');
   const letter = i => 'ABCDEFGH'[i];
+
+  // A verified excerpt from the novel: quotation marks plus a small part/chapter tag.
+  function excerpt(q, cls, attrs) {
+    return h('blockquote', Object.assign({ class: 'quote' + (cls ? ' ' + cls : '') }, attrs || {}),
+      h('span', { class: 'q-text' }, '“' + q.text + '”'),
+      h('cite', { class: 'src' }, q.src));
+  }
 
   function mount(node, opts) {
     opts = opts || {};
@@ -355,8 +363,8 @@
     const view = h('article', { class: 'q' + (q.voice ? ' voiced' : '') + (q.final ? ' final' : '') },
       opts.review ? opts.kicker : actKicker(q),
       h('p', { class: 'q-type' }, h('span', null, q.label), q.scored === false ? h('em', null, 'not scored') : null),
-      q.quotes ? h('div', { class: 'quotes' }, q.quotes.map((t, i) => h('blockquote', { class: 'quote', style: '--d:' + i }, t))) : null,
-      q.speech ? h('div', { class: 'speech' }, h('p', { class: 'um-label' }, 'UNDERGROUND MAN'), h('blockquote', null, q.speech)) : null,
+      q.quotes ? h('div', { class: 'quotes' }, q.quotes.map((t, i) => excerpt(t, '', { style: '--d:' + i }))) : null,
+      q.speech ? h('div', { class: 'speech' }, h('p', { class: 'um-label' }, 'UNDERGROUND MAN'), excerpt(q.speech, 'bare')) : null,
       q.lines ? h('div', { class: 'lines' }, q.lines.map((t, i) => h('p', { style: '--d:' + i }, t))) : null,
       h('div', { class: 'prompt focus' }, q.prompt.map(p => h('p', null, p))),
       q.hint && !ans ? h('p', { class: 'hint' }, q.hint) : null,
@@ -484,6 +492,7 @@
       q.headline ? h('p', { class: 'fb-head' }, q.headline) : null,
       f && f.body ? h('div', { class: 'fb-body' }, arr(f.body).map(t => h('p', null, t))) : null,
       q.coda ? h('div', { class: 'coda' + (q.final ? ' coda-final' : '') }, q.coda.map((t, i) => h('p', { style: '--d:' + i }, t))) : null,
+      q.quote ? excerpt(q.quote, 'fb-quote') : null,
       opts.review ? opts.extra : null,
       h('div', { class: 'fb-foot' },
         h('span', { class: 'fb-score' }, scored ? (r ? '+' + POINTS + ' INSIGHT' : '0 INSIGHT') : opts.review ? opts.scoreNote : 'NOT SCORED'),
@@ -497,6 +506,7 @@
       h('p', { class: 'kicker' }, 'CONCEPT'),
       h('h2', { class: 'concept-t' }, step.title),
       h('div', { class: 'concept-b' }, step.body.map(p => h('p', null, p))),
+      step.quote ? excerpt(step.quote, 'concept-q') : null,
       step.note ? h('p', { class: 'concept-n' }, step.note) : null,
       h('button', { class: 'btn', onclick: advance }, 'CONTINUE'))));
   }
@@ -522,13 +532,15 @@
     const chosen = pick != null ? step.responses[pick] : null;
     const view = h('article', { class: 'um' + (chosen ? ' answered' : '') },
       h('p', { class: 'um-label' }, 'UNDERGROUND MAN'),
-      h('blockquote', { class: 'um-line focus' }, step.line),
+      typeof step.line === 'string'
+        ? h('p', { class: 'um-line said-line focus' }, step.line)
+        : h('div', { class: 'um-line focus' }, excerpt(step.line, 'bare')),
       h('div', { class: 'um-resp' }, step.responses.map((r, i) => h('button', {
         class: 'um-opt' + (chosen ? (i === pick ? ' said' : ' gone') : ''), style: '--k:' + i, disabled: !!chosen,
         onclick: () => { S.run.interrupts[step.id] = i; S.spite.interrupts[step.id] = i; save(); renderInterrupt(step); }
       }, r.text))),
       chosen ? h('div', { class: 'um-reply', 'aria-live': 'polite' },
-        h('blockquote', null, chosen.reply),
+        h('p', { class: 'said-line' }, chosen.reply),
         h('p', { class: 'um-aside' }, chosen.aside),
         h('button', { class: 'btn ghost', 'data-autofocus': true, onclick: advance }, 'CONTINUE')) : null);
     mount(h('div', { class: 'play under' },
@@ -657,7 +669,7 @@
     if (!variant) return go('review');
     setMood('play', depthLift(S.depth));
     const q = {
-      id: gid, kind: 'choice', label: 'A NEW ANGLE', scored: false,
+      id: gid, kind: 'choice', label: 'A NEW ANGLE', scored: false, quotes: variant.quotes,
       prompt: variant.prompt, options: variant.options, answer: variant.answer,
       right: { label: 'RECOVERED', body: variant.right }, wrong: { body: variant.wrong }
     };
