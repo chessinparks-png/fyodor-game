@@ -356,11 +356,15 @@
   }
 
   /* questions */
+  const HOLD_MS = 1200;   // a miss registers before the best reading appears
+  let justAnswered = null;
+
   function renderQuestion(q, opts) {
     opts = opts || {};
     const store = opts.store || S.run.answers;
     const ans = store[q.id];
-    const view = h('article', { class: 'q' + (q.voice ? ' voiced' : '') + (q.final ? ' final' : '') },
+    const holding = !!(ans && !ans.correct && justAnswered === q.id);
+    const view = h('article', { class: 'q' + (q.voice ? ' voiced' : '') + (q.final ? ' final' : '') + (holding ? ' hold' : '') },
       opts.review ? opts.kicker : actKicker(q),
       h('p', { class: 'q-type' }, h('span', null, q.label), q.scored === false ? h('em', null, 'not scored') : null),
       q.quotes ? h('div', { class: 'quotes' }, q.quotes.map((t, i) => excerpt(t, '', { style: '--d:' + i }))) : null,
@@ -379,6 +383,7 @@
       store[q.id] = { pick, correct, at: Date.now() };
       if (opts.onAnswer) opts.onAnswer(correct, pick);
       save();                                        // persisted before any feedback is shown
+      justAnswered = q.id;
       rerender();
     };
     const rerender = () => {
@@ -399,25 +404,41 @@
 
     const node = opts.review ? view : frame(q, view, { cls: q.voice ? 'voice' : '' });
     mount(node, { keepScroll: !!ans });
-    if (ans && q.final) {
-      const a = $app.querySelector('.answers');
-      setTimeout(() => a && a.classList.add('collapse'), reduced() ? 0 : 400);
+    if (!ans) return;
+    justAnswered = null;
+    const collapse = () => {                        // Q24: the unchosen misreadings withdraw
+      const a = view.querySelector('.answers');
+      if (q.final && a) a.classList.add('collapse');
+    };
+    if (holding) {
+      setTimeout(() => {
+        view.classList.remove('hold');
+        const btn = view.querySelector('.fb-foot .btn');
+        if (btn) btn.focus({ preventScroll: true });
+        collapse();
+      }, HOLD_MS);
+    } else if (q.final) {
+      setTimeout(collapse, reduced() ? 0 : 400);
     }
   }
+
+  // small typographic result tag inside an answered option
+  const tag = (text, cls) => h('span', { class: 'opt-tag' + (cls ? ' ' + cls : '') }, text);
 
   function buildChoice(q, slot, ans, commit) {
     slot.classList.add('opts', q.layout ? 'layout-' + q.layout : 'layout-list');
     q.options.forEach((text, i) => {
-      let cls = 'opt';
+      let cls = 'opt', mark = null;
       if (ans) {
-        if (i === q.answer) cls += ans.correct ? ' hit' : ' key';
-        else if (i === ans.pick) cls += ' miss';
+        if (i === ans.pick && ans.correct) { cls += ' hit chosen'; mark = tag('YOUR READING'); }
+        else if (i === ans.pick) { cls += ' miss chosen'; mark = tag('YOUR READING · MISREAD'); }
+        else if (i === q.answer) { cls += ' key'; mark = tag('BEST READING', 'late'); }
         else cls += ' dim';
       }
       slot.append(h('button', {
         class: cls, disabled: !!ans, 'aria-pressed': ans ? String(i === ans.pick) : null,
         onclick: () => commit(i)
-      }, q.layout ? null : h('span', { class: 'opt-l' }, letter(i)), h('span', { class: 'opt-t' }, text)));
+      }, q.layout ? null : h('span', { class: 'opt-l' }, letter(i)), h('span', { class: 'opt-t' }, text, mark)));
     });
   }
 
@@ -426,10 +447,13 @@
     const sel = new Set(ans ? ans.pick : []);
     const confirm = h('button', { class: 'btn confirm', disabled: true, onclick: () => commit([...sel].sort()) }, 'CONFIRM');
     q.options.forEach((text, i) => {
-      let cls = 'opt check';
+      let cls = 'opt check', mark = null;
       if (ans) {
         const want = q.answer.includes(i), got = sel.has(i);
-        cls += want && got ? ' hit' : !want && got ? ' miss' : want ? ' key' : ' dim';
+        if (want && got) { cls += ' hit chosen'; mark = tag('CORRECT'); }
+        else if (got) { cls += ' miss chosen'; mark = tag('MISREAD'); }
+        else if (want) { cls += ' key'; mark = tag('MISSED', 'late'); }
+        else cls += ' dim';
       }
       const b = h('button', {
         class: cls, disabled: !!ans, role: 'checkbox', 'aria-checked': String(sel.has(i)),
@@ -439,8 +463,8 @@
           b.classList.toggle('on', sel.has(i));
           confirm.disabled = sel.size === 0;
         }
-      }, h('span', { class: 'opt-l box' }, letter(i)), h('span', { class: 'opt-t' }, text));
-      if (sel.has(i)) b.classList.add('on');
+      }, h('span', { class: 'opt-l box' }, letter(i)), h('span', { class: 'opt-t' }, text, mark));
+      if (sel.has(i) && !ans) b.classList.add('on');
       slot.append(b);
     });
     if (!ans) slot.append(confirm);
@@ -458,12 +482,16 @@
       for (let k = 0; k < q.tiles.length; k++) {
         const t = placed[k];
         if (t == null) { chain.append(h('li', { class: 'slot empty' }, h('span', { class: 'slot-n' }, k + 1))); continue; }
-        let cls = 'slot filled';
-        if (ans) cls += t === q.answer[k] ? ' hit' : ' miss';
+        let cls = 'slot filled', mark = null;
+        if (ans) {
+          const inPlace = t === q.answer[k];
+          cls += inPlace ? ' hit' : ' miss';
+          mark = tag(inPlace ? 'IN PLACE' : 'OUT OF PLACE');
+        }
         chain.append(h('li', { class: cls },
           h('button', { class: 'tile placed', disabled: !!ans, 'aria-label': 'Remove ' + q.tiles[t],
             onclick: () => { placed.splice(k, 1); draw(); } },
-            h('span', { class: 'slot-n' }, k + 1), q.tiles[t])));
+            h('span', { class: 'slot-n' }, k + 1), h('span', { class: 'tile-t' }, q.tiles[t]), mark)));
       }
       q.tiles.forEach((t, i) => {
         if (placed.includes(i)) return;
@@ -475,7 +503,7 @@
     slot.append(chain);
     if (!ans) slot.append(tray, confirm);
     else if (!ans.correct) {
-      slot.append(h('div', { class: 'chain-key' },
+      slot.append(h('div', { class: 'chain-key late' },
         h('p', { class: 'kicker' }, 'THE CHAIN'),
         h('p', { class: 'chain-line' }, q.answer.map((t, k) => [k ? h('span', { class: 'arr' }, '→') : null, h('span', null, q.tiles[t])]))));
     }
@@ -487,15 +515,28 @@
     const scored = !opts.review && q.scored;
     const next = opts.review ? opts.next : () => advance();
     const nextLabel = opts.review ? opts.nextLabel : 'CONTINUE';
+    const points = opts.review ? opts.scoreNote
+      : !scored ? 'NOT SCORED'
+      : r ? '+' + POINTS + ' INSIGHT' : '0 INSIGHT';
+    const flavour = r && q.right.label && q.right.label !== 'INSIGHT' ? q.right.label : null;
+    let best = null;
+    if (!r && q.kind === 'choice') best = [letter(q.answer), q.options[q.answer]];
+    if (!r && q.kind === 'multi') best = [q.answer.map(letter).join(' · '), null];
     return h('section', { class: 'fb ' + (r ? 'right' : 'wrong') },
-      h('p', { class: 'fb-label' }, r ? (q.right.label || 'INSIGHT') : 'MISREAD'),
+      h('div', { class: 'fb-result', role: 'status' },
+        h('span', { class: 'fb-verdict' }, r ? 'INSIGHT' : 'MISREAD'),
+        h('span', { class: 'fb-points' }, points)),
+      flavour ? h('p', { class: 'fb-label' }, flavour) : null,
       q.headline ? h('p', { class: 'fb-head' }, q.headline) : null,
       f && f.body ? h('div', { class: 'fb-body' }, arr(f.body).map(t => h('p', null, t))) : null,
+      best ? h('div', { class: 'fb-best late' },
+        h('span', { class: 'fb-best-k' }, 'BEST READING'),
+        h('span', { class: 'fb-best-l' }, best[0]),
+        best[1] ? h('span', { class: 'fb-best-t' }, best[1]) : null) : null,
       q.coda ? h('div', { class: 'coda' + (q.final ? ' coda-final' : '') }, q.coda.map((t, i) => h('p', { style: '--d:' + i }, t))) : null,
       q.quote ? excerpt(q.quote, 'fb-quote') : null,
       opts.review ? opts.extra : null,
-      h('div', { class: 'fb-foot' },
-        h('span', { class: 'fb-score' }, scored ? (r ? '+' + POINTS + ' INSIGHT' : '0 INSIGHT') : opts.review ? opts.scoreNote : 'NOT SCORED'),
+      h('div', { class: 'fb-foot late' },
         h('button', { class: 'btn', 'data-autofocus': true, onclick: next }, nextLabel)));
   }
 

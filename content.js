@@ -75,7 +75,7 @@ window.UNDERGROUND = {
         quotes: [{ text: 'No, I refuse to consult a doctor from spite.', src: 'PART I · I' }],
         prompt: [
           'He believes his liver is diseased. He says he respects medicine.',
-          'Against whom is this spite directed?'
+          'Against whom is this spite directed? Read against the rest of this opening paragraph, which answer is best supported by the text?'
         ],
         options: [
           'The doctors, whose authority he resents even while claiming to respect it.',
@@ -85,13 +85,13 @@ window.UNDERGROUND = {
         ],
         answer: 2,
         right: { label: 'INSIGHT', body: 'He cannot say whom he is mortifying. The only one injured is himself, and he knows it. Spite without a target is no longer simple hostility.' },
-        wrong: { body: 'He rules out the doctors himself, and he never calls it a punishment. The spite has no one to injure but him, and he chooses it knowing that.' },
-        quote: { text: 'I am perfectly well aware that I cannot ‘pay out’ the doctors by not consulting them; I know better than anyone that by all this I am only injuring myself and no one else.', src: 'PART I · I' }
+        wrong: { body: 'Against himself is a fair guess from the line alone, but the paragraph never speaks of deserving punishment. He says he cannot name whom he is mortifying, and he rules out the doctors himself.' },
+        quote: { text: 'Of course, I can’t explain who it is precisely that I am mortifying in this case by my spite: I am perfectly well aware that I cannot ‘pay out’ the doctors by not consulting them', src: 'PART I · I' }
       },
 
       { type: 'question', id: 'q02', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['SPITE', 'RATIONAL EGOISM'],
-        prompt: ['What makes this more than an ordinary bad decision?'],
+        prompt: ['What makes this refusal a problem for the idea that people act on their known interest?'],
         options: [
           'He has judged his interest correctly, and the judgment does not settle his choice.',
           'He has misjudged the risk, and better information would change his mind.',
@@ -101,7 +101,7 @@ window.UNDERGROUND = {
         answer: 0,
         headline: 'KNOWING IS NOT CHOOSING.',
         right: { label: 'THE SYSTEM BREAKS HERE', body: 'A mistake can be corrected with better information. His information is already correct.' },
-        wrong: { body: 'Nothing in the passage is misjudged, wanted, or principled. He sees his interest clearly — “My liver is bad, well—let it get worse!” — and the seeing decides nothing.' }
+        wrong: { body: '“My liver is bad, well—let it get worse!” can sound like wanting the illness, but the point for the argument is sharper: he sees his interest clearly, and the seeing decides nothing. A misjudgment or a hidden motive would leave the idea intact.' }
       },
 
       { type: 'question', id: 'q03', scored: true, kind: 'choice', label: 'CONTRADICTION',
@@ -110,7 +110,7 @@ window.UNDERGROUND = {
           { text: 'I was a spiteful official.', src: 'PART I · I' },
           { text: 'I was lying when I said just now that I was a spiteful official. I was lying from spite.', src: 'PART I · I' }
         ],
-        prompt: ['What is the most careful way to read the retraction?'],
+        prompt: ['Which reading accounts for both lines without discarding either?'],
         options: [
           'The retraction is the real confession: the spite was a pose, and he now admits it.',
           'The first line is the real confession; the retraction only provokes the reader.',
@@ -120,15 +120,15 @@ window.UNDERGROUND = {
         answer: 2,
         headline: 'UNRELIABLE DOES NOT MEAN MEANINGLESS.',
         right: { label: 'YOU CAUGHT THE LOOPHOLE', body: 'He takes back the claim to spite — and says he took it back from spite. The contradiction is not noise. It is the evidence.' },
-        wrong: { body: 'Choosing one line lets him off the hook; discarding both does too. Look at how the retraction is made: “from spite.” It repeats the act it denies.' }
+        wrong: { body: 'The next sentences do support reading the spite as a pose — but that reading throws the first line away. Only one option keeps both: the retraction is made “from spite,” so it repeats the act it denies.' }
       },
 
       { type: 'question', id: 'q04', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['SPITE', 'FREEDOM'],
         quotes: [{ text: 'I did not know how to become anything; neither spiteful nor kind, neither a rascal nor an honest man, neither a hero nor an insect.', src: 'PART I · I' }],
         prompt: [
-          'He opened with “I am a spiteful man.” Now he says he never could become spiteful.',
-          'What does this do to the word?'
+          'He opened with “I am a spiteful man.” Now he says he never could become spiteful — yet he still refuses the doctor “from spite,” in the present tense.',
+          'Which reading fits both claims?'
         ],
         options: [
           'It exposes the opening as a lie, so that “spite” names nothing real in him.',
@@ -138,7 +138,7 @@ window.UNDERGROUND = {
         ],
         answer: 1,
         right: { label: 'YES', body: 'He keeps acting “from spite,” yet cannot become spiteful. Treat spite as a working interpretation: a stance taken up, not a settled trait.' },
-        wrong: { body: 'He goes on acting from spite, so the word still names something — but not a character he possesses. Spite is a stance he keeps adopting and cannot fully become.' }
+        wrong: { body: 'The chapter does blame his century for “characterless” men, but that explains the generation, not his present act. He goes on acting from spite without possessing it as a character: a stance he keeps adopting and cannot fully become.' }
       },
 
       { type: 'rise', to: -40 },
@@ -164,7 +164,7 @@ window.UNDERGROUND = {
         quotes: [{ text: '‘Well, even in toothache there is enjoyment,’ I answer.', src: 'PART I · IV' }],
         prompt: [
           'The educated man’s moans relieve nothing, and his whole household listens with loathing.',
-          'Where, by the Underground Man’s account, does the enjoyment lie?'
+          'In this passage, where does the Underground Man locate the enjoyment?'
         ],
         options: [
           'In a relief that comes from voicing the pain instead of bearing it silently.',
@@ -181,7 +181,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q06', scored: true, kind: 'sequence', label: 'SEQUENCE',
         concepts: ['SUFFERING', 'SPITE'],
         prompt: ['Build the chain.'],
-        hint: 'Tap the links in order. Tap a placed link to take it back.',
+        hint: 'Order the links as the toothache passage orders them, from cause to pleasure. Tap a placed link to take it back.',
         tiles: ['MALIGNANT MOANS', 'PAIN', 'PLEASURE IN BEING SEEN THROUGH', 'CONSCIOUSNESS OF HUMILIATION'],
         answer: [1, 3, 0, 2],
         coda: ['He cannot command the tooth.', 'HE CAN COMMAND THE MOAN.'],
@@ -193,7 +193,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q07', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['SUFFERING'],
         quotes: [{ text: 'Perhaps suffering is just as great a benefit to him as well-being?', src: 'PART I · IX' }],
-        prompt: ['Later he asks this outright. Does he go on to argue that suffering is good?'],
+        prompt: ['Later he asks this outright. Read to the end of his answer: which option states the position he finally takes?'],
         options: [
           'Yes: he concludes that suffering is the true good that reason overlooks.',
           'No: he refuses to side with suffering; what he defends is his own caprice.',
@@ -203,14 +203,14 @@ window.UNDERGROUND = {
         answer: 1,
         headline: 'TOO SIMPLE.',
         right: { label: 'THAT’S THE DISTINCTION', body: 'He flirts with the praise of suffering, then declines to take its side. Suffering matters to him because it belongs to consciousness and choice — not because it is good.' },
-        wrong: { body: 'He can prize suffering without calling it good. He says so plainly, and names what he is really defending.' },
+        wrong: { body: 'He does say man is “passionately, in love with suffering” — but the question is where his answer ends. He declines to side with suffering or with well-being, and names what he is really defending.' },
         quote: { text: 'I hold no brief for suffering nor for well-being either. I am standing for ... my caprice', src: 'PART I · IX' }
       },
 
       { type: 'question', id: 'q08', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['SPITE', 'SUFFERING'],
         prompt: [
-          'He contrasts the moans of the first day with the moans of the second or third.',
+          'In this passage he contrasts the moans of the first day with the moans of the second or third.',
           'What has changed?'
         ],
         options: [
@@ -241,7 +241,7 @@ window.UNDERGROUND = {
 
       { type: 'question', id: 'q09', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['RATIONAL EGOISM'],
-        prompt: ['Which person creates the hardest problem for that model?'],
+        prompt: ['Which case is closest to the Underground Man’s own argument against that model?'],
         options: [
           'Someone who harms himself by mistake, having misread where his interest lay.',
           'Someone whose passion overpowers his reason at the decisive moment.',
@@ -251,7 +251,7 @@ window.UNDERGROUND = {
         answer: 3,
         headline: 'DEFIANCE IS THE HARDER CASE.',
         right: { label: 'THE SYSTEM BREAKS HERE', body: 'Mistakes and passions can be treated as errors to correct. The enlightened egoist can even see his advantage in a good cause. Knowing refusal cannot be absorbed.' },
-        wrong: { body: 'Error and passion fit the model as defects to be educated away, and a good cause fits it as enlightened interest. The hard case is someone who understands — and refuses.' },
+        wrong: { body: 'Sacrifice for a good cause is the classic objection to egoism, but not his: the model says an enlightened man “would see his own advantage in the good.” His cases are people who understand their interest and leave it behind, “simply disliking the beaten track.”' },
         quote: { text: 'men, CONSCIOUSLY, that is fully understanding their real interests, have left them in the background', src: 'PART I · VII' }
       },
 
@@ -259,7 +259,7 @@ window.UNDERGROUND = {
         concepts: ['RATIONAL EGOISM', 'FREEDOM'],
         prompt: [
           'He calls independent choice the “most advantageous advantage.”',
-          'His opponents could simply add it to their list of advantages. Why, by his account, would that fail?'
+          'His opponents could simply add it to their list of advantages. Not why it matters, but why it cannot be listed: which answer is closest to the reason he gives in chapter VII?'
         ],
         options: [
           'It is worth more than all the rest, so every other entry would stop mattering.',
@@ -275,7 +275,7 @@ window.UNDERGROUND = {
 
       { type: 'question', id: 'q11', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['FREEDOM', 'RATIONAL EGOISM'],
-        prompt: ['Which is the most accurate statement of his claim?'],
+        prompt: ['Which statement is closest to his claim in chapter VII about what people prize?'],
         options: [
           'People who choose freely tend, over a lifetime, to fare better than those who don’t.',
           'Choice matters only when some authority is trying to impose an outcome on us.',
@@ -284,7 +284,7 @@ window.UNDERGROUND = {
         ],
         answer: 3,
         right: { label: 'YES', body: 'He does not defend choice as a better route to welfare. He puts it above welfare — and says it can be a wild caprice.' },
-        wrong: { body: 'Each of the others turns choice into a means to some further good. His claim is that choice is prized above the goods themselves.' },
+        wrong: { body: 'He does ask elsewhere whether reason errs about advantage — but that is a claim about what benefits people. His claim here is about what they prize: choice above the goods themselves.' },
         quote: { text: 'One’s own free unfettered choice, one’s own caprice, however wild it may be, one’s own fancy worked up at times to frenzy', src: 'PART I · VII' }
       },
 
@@ -295,7 +295,7 @@ window.UNDERGROUND = {
         prompt: [
           'A man is given two options. A clearly benefits him. B clearly harms him.',
           'He chooses B because everyone insists he must choose A.',
-          'For the Underground Man, what matters most in this choice?'
+          'Which answer is closest to the Underground Man’s own account of such a choice?'
         ],
         options: [
           'The harm itself, which he has come to welcome as a proof of seriousness.',
@@ -305,7 +305,7 @@ window.UNDERGROUND = {
         ],
         answer: 2,
         right: { label: 'INSIGHT', body: 'The harm is the price, not the point. The point is the right to want for himself.' },
-        wrong: { body: 'Neither the harm nor the others’ frustration is the aim. He names the aim himself, and it is a right, not an outcome.' },
+        wrong: { body: 'Frustrating the others is the obvious reading of the scenario, but it is not his account. He names the aim himself, and it is a right, not an outcome.' },
         quote: { text: 'simply in order to have the right to desire for himself even what is very stupid', src: 'PART I · VIII' }
       },
 
@@ -330,7 +330,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q13', scored: true, kind: 'choice', label: 'METAPHOR',
         concepts: ['FREEDOM', 'RATIONAL EGOISM'],
         quotes: [{ text: 'he himself is something of the nature of a piano-key or the stop of an organ', src: 'PART I · VII' }],
-        prompt: ['What would a piano key lack that he refuses to lose?'],
+        prompt: ['In this passage, what would a piano key lack that he refuses to lose?'],
         options: [
           'A place in a larger instrument that gives its single sound a meaning.',
           'The power to sound except when struck, as the instrument dictates.',
@@ -347,7 +347,7 @@ window.UNDERGROUND = {
         concepts: ['FREEDOM'],
         prompt: [
           'Suppose science one day explains why people rebel, sabotage themselves, and act from spite.',
-          'What follows for his argument?'
+          'Which answer is the strongest critique of his claim that defiance shows we are not piano keys?'
         ],
         options: [
           'Rebellion could be caused like anything else; defiance alone proves no freedom.',
@@ -358,13 +358,13 @@ window.UNDERGROUND = {
         answer: 0,
         headline: 'IRRATIONAL ≠ FREE.',
         right: { label: 'THAT’S THE DISTINCTION', body: 'Defying advantage and escaping causation are different achievements. The first does not deliver the second.' },
-        wrong: { body: 'Explanation would not make rebellion vanish, and it would not hand rational egoism a victory. It would show that defiance, too, can have causes.' }
+        wrong: { body: 'That defiance cannot be explained is his hope, not a critique of it; and explanation would not hand rational egoism a victory. The critique is that defiance, too, can have causes.' }
       },
 
       { type: 'question', id: 'q15', scored: true, kind: 'choice', label: 'COUNTER', voice: true,
         concepts: ['FREEDOM'],
         speech: { text: 'If you say that all this, too, can be calculated and tabulated ... then man would purposely go mad in order to be rid of reason and gain his point!', src: 'PART I · VIII' },
-        prompt: ['He has already anticipated your objection. What is the strongest reply?'],
+        prompt: ['He has already anticipated your objection. What is the strongest critique of this move?'],
         options: [
           'Deliberate madness is still an event with causes; the same problem returns.',
           'Madness is not a choice at all, so it cannot be offered as a use of freedom.',
@@ -380,7 +380,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q16', scored: true, kind: 'choice', label: 'DISTINCTION',
         concepts: ['FREEDOM', 'RATIONAL EGOISM'],
         quotes: [{ text: 'no one is touching my free will, that all they are concerned with is that my will should of itself, of its own free will, coincide with my own normal interests', src: 'PART I · VIII' }],
-        prompt: ['This is his opponents’ reply. On their view, which act could be free?'],
+        prompt: ['This is one reply his opponents make. In this specific reply, what counts as a free act?'],
         options: [
           'Only an act that goes against what the agent has calculated to be his interest.',
           'No act at all, since every act follows from the laws of nature.',
@@ -389,7 +389,7 @@ window.UNDERGROUND = {
         ],
         answer: 3,
         right: { label: 'THAT’S THE DISTINCTION', body: 'For them, a rational act can be fully free. The two sides are not only arguing about whether we are free — they disagree about what freedom is.' },
-        wrong: { body: 'His opponents do not deny freedom; they locate it in reason. On their view a will that freely agrees with its interests is free. Rational and free are separate questions.' }
+        wrong: { body: 'Elsewhere in the chapter they do say there is no real choice — but not in this reply. Here they locate freedom in reason: a will that of its own accord agrees with its interests is free. Rational and free are separate questions.' }
       },
 
       /* ─────────────────────────── ACT V — THE PRISON ───────────────────────────
@@ -398,10 +398,10 @@ window.UNDERGROUND = {
 
       { type: 'question', id: 'q17', scored: true, kind: 'multi', label: 'MULTISELECT',
         concepts: ['SPITE', 'FREEDOM'],
-        prompt: ['Across the notes, what does spite do for him — and to him?'],
+        prompt: ['Across the notes, what does the text say spite does, or can do, for him — and to him?'],
         hint: 'Select all that apply.',
         options: [
-          'It lets him act when reflection has left him no reason to act.',
+          'It can stand in for the reason to act that reflection keeps dissolving.',
           'It gives him a way to insist that his will is his own.',
           'It brings him lasting relief once the spiteful act is done.',
           'It returns him, again and again, to the same corner and the same shame.',
@@ -416,7 +416,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q18', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['FREEDOM', 'SELF-DECEPTION'],
         quotes: [{ text: 'the whole work of man really seems to consist in nothing but proving to himself every minute that he is a man and not a piano-key!', src: 'PART I · VIII' }],
-        prompt: ['Which statement is most defensible?'],
+        prompt: ['Which statement best fits this passage — his own words about what the work of man consists in?'],
         options: [
           'Spite proves he is free, since no law of nature could have required it of him.',
           'Spite proves he is unfree, since it runs in grooves as fixed as any law.',
@@ -426,13 +426,13 @@ window.UNDERGROUND = {
         answer: 3,
         headline: 'AN ATTEMPT IS NOT A PROOF.',
         right: { label: 'THAT’S THE DISTINCTION', body: 'He says it himself: the proof must be made to himself, every minute. A proof that has to be renewed every minute has never been completed.' },
-        wrong: { body: 'Neither proof holds, and pride is too small a word for it. Spite is an attempt to experience freedom — one he must keep repeating because it never settles the question.' }
+        wrong: { body: 'Spite does run in grooves — but repetition shows confinement, not a proof of unfreedom, and the passage speaks of neither proof nor pride. It speaks of proving something to himself, every minute: an attempt that never settles.' }
       },
 
       { type: 'question', id: 'q19', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['SELF-DECEPTION', 'SUFFERING'],
         quotes: [{ text: 'till at last the bitterness turned into a sort of shameful accursed sweetness, and at last—into positive real enjoyment!', src: 'PART I · II' }],
-        prompt: ['He understands that his conduct is destructive. Why doesn’t that knowledge free him?'],
+        prompt: ['He understands that his conduct is destructive. Which answer is closest to his own explanation of why that knowledge does not free him?'],
         options: [
           'His knowledge is only intellectual; deep down he does not believe it.',
           'He thinks his misery is deserved, and so refuses the relief change would bring.',
@@ -441,7 +441,7 @@ window.UNDERGROUND = {
         ],
         answer: 2,
         right: { label: 'INSIGHT', body: 'Knowledge does not merely fail to free him. It stalls him — and then becomes a pleasure of its own.' },
-        wrong: { body: 'He believes what he knows, and he never claims to deserve his misery. He says that consciousness itself produces inertia — and that its bitterness turns sweet.' },
+        wrong: { body: 'He does later doubt every word he writes, but that is a reader’s diagnosis, not his explanation. His explanation is that consciousness itself produces inertia — and that its bitterness turns sweet.' },
         quote: { text: 'the direct, legitimate fruit of consciousness is inertia', src: 'PART I · V' }
       },
 
@@ -450,7 +450,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q20', scored: true, kind: 'choice', label: 'SELF-DECEPTION',
         concepts: ['SELF-DECEPTION'],
         quotes: [{ text: 'I write only for myself, and I wish to declare once and for all that if I write as though I were addressing readers, that is simply because it is easier for me to write in that form.', src: 'PART I · XI' }],
-        prompt: ['Moments later he asks why he calls you “gentlemen” at all. What best describes how he presents himself?'],
+        prompt: ['Moments later he asks why he calls you “gentlemen” at all. Which description is most consistent with the whole passage?'],
         options: [
           'He sees himself with complete clarity; each contradiction is deliberate irony.',
           'He deceives himself about having an audience and never notices the problem.',
@@ -473,7 +473,7 @@ window.UNDERGROUND = {
         concepts: ['RECOGNITION'],
         prompt: [
           'Liza comes to his rooms. He humiliates her, then breaks down in tears.',
-          'She does not answer his cruelty in kind. What does she grasp?'
+          'She does not answer his cruelty in kind. According to the narrator, what did she understand first of all?'
         ],
         options: [
           'That he is himself unhappy — she sees past the performance to the man.',
@@ -490,7 +490,7 @@ window.UNDERGROUND = {
       { type: 'question', id: 'q22', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['RECOGNITION', 'SPITE'],
         quotes: [{ text: 'our parts now were completely changed, that she was now the heroine', src: 'PART II · IX' }],
-        prompt: ['Why does being seen this way turn him against her?'],
+        prompt: ['Which answer best fits this passage — the reversal he describes while lying on the sofa?'],
         options: [
           'He realises he does not love her, and wants her to understand that quickly.',
           'Her pity reverses their positions; he can bear her from above, not below.',
@@ -499,14 +499,14 @@ window.UNDERGROUND = {
         ],
         answer: 1,
         right: { label: 'INSIGHT', body: 'In the brothel he stood above her. Now she is the one who sees and pities. He cannot bear a relation he does not dominate.' },
-        wrong: { body: 'Nothing suggests he doubts her or fears gossip. The reversal itself is intolerable — he says what loving meant for him.' },
+        wrong: { body: 'He was indeed incapable of loving her, but that does not explain why being seen is intolerable. The reversal does: he says what loving meant for him.' },
         quote: { text: 'with me loving meant tyrannising and showing my moral superiority.', src: 'PART II · X' }
       },
 
       { type: 'question', id: 'q23', scored: true, kind: 'choice', label: 'CLAIM',
         concepts: ['RECOGNITION', 'SPITE'],
         quotes: [{ text: 'I will say straight out that I opened her hand and put the money in it ... from spite.', src: 'PART II · X' }],
-        prompt: ['After their encounter, as she leaves, he presses money into her hand. What does the money do?'],
+        prompt: ['After their encounter, as she leaves, he presses money into her hand. Which interpretation is most consistent with his admission and with what follows?'],
         options: [
           'It turns intimacy back into a transaction, and puts him above her again.',
           'It pays her, and so marks honestly what their encounter had been.',
@@ -536,7 +536,7 @@ window.UNDERGROUND = {
 
       { type: 'question', id: 'q24', scored: true, kind: 'choice', label: 'FINAL SURFACE CHECK', final: true,
         concepts: ['SPITE', 'FREEDOM'],
-        prompt: ['What is spite in Notes from Underground?'],
+        prompt: ['What is spite in Notes from Underground? Which definition is most consistent with the text as a whole: the doctor, the toothache, the piano key, and Liza?'],
         options: [
           'The pleasure of wounding others, dressed up afterwards as a theory of freedom.',
           'Dostoevsky’s own demonstration, through his narrator, that the will is free.',
