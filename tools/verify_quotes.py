@@ -26,6 +26,10 @@ AUTHORED = {
     'If he admits he lies, nothing he says counts.',
     'Think less, and you’ll be well.',
     'Now that he understands his inertia, he can overcome it.',
+    'Teach people their true interest, and crime will vanish.',
+    'The narrator attacks Chernyshevsky by name.',
+    'He only thinks he chooses against his interest; really he misjudges it.',
+    'So he thinks reason is worthless.',
 }
 
 
