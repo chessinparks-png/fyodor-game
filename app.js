@@ -253,7 +253,8 @@
     });
 
     let note = null;
-    if (next) note = playable(next.id)
+    if (from === U.chambers.length - 1) note = 'You have reached the surface. The questions come up with you.';
+    else if (next) note = playable(next.id)
       ? next.name + ' lies above.'
       : next.name + ' is still sealed. The next chamber has not been opened yet.';
 

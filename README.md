@@ -1,6 +1,10 @@
 # UNDERGROUND
 
-A philosophical learning game based on Dostoevsky's *Notes from Underground*, in eight chambers. Built so far: **01 THE NOTE FROM BELOW** and **05 SPITE**; the rest are sealed on the map.
+A philosophical learning game based on Dostoevsky's *Notes from Underground*, in eight chambers, from −91 m to the surface:
+
+01 THE NOTE FROM BELOW · 02 TOO CONSCIOUS · 03 THE FORMULA · 04 THE ADVANTAGE · 05 SPITE · 06 THE WALL · 07 LIZA · 08 SURFACE
+
+All eight are currently open; sequential unlocking is not enforced yet.
 
 ## Run
 
@@ -15,7 +19,9 @@ Open `index.html` in a browser. There is no build step, no server and no network
 - `app.js` — the engine: map, play loop, scoring, results, review and localStorage
 
 To add a chamber, write `chambers/<id>.js` following the schema in `content.js` and add a `<script>` tag for it in `index.html` before `app.js`. A chamber becomes playable as soon as its file is loaded.
-- `tools/verify_quotes.py` — checks every quotation in `content.js` against the novel
+
+- `tools/verify_quotes.py` — checks every quotation in `content.js` and the chamber files against the novel
+- `tools/answer_keys.py` — audits a chamber's answer keys (position balance, length cues, cue words); `--shuffle` rebalances key positions
 
 ## Sources
 

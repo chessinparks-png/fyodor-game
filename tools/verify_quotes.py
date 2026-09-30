@@ -35,6 +35,8 @@ AUTHORED = {
     'He thinks foolish choices are better than wise ones.',
     'As long as science can’t predict us, we’re free.',
     'At least his dream of saving her was generous.',
+    'He is an existentialist hero who freely creates himself.',
+    'So the lesson is: think less and act.',
 }
 
 
