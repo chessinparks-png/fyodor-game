@@ -44,8 +44,8 @@ def shuffle(path):
     blocks = list(PAT.finditer(s))
     main = [b for b in blocks if b.start() < split]
     rev = [b for b in blocks if b.start() > split]
-    seed = sum(map(ord, os.path.basename(path)))
-    target = pick(len(main), seed) + pick(len(rev), seed + 1)
+    seed = os.path.basename(path)               # a string seed: distinct per chamber file
+    target = pick(len(main), seed) + pick(len(rev), seed + '#review')
     out, last = [], 0
     for m, t in zip(main + rev, target):
         lines = [l for l in m.group(2).split('\n') if l.strip()]
