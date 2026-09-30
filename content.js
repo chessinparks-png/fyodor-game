@@ -55,14 +55,20 @@ window.UNDERGROUND = {
   chambers: [
     { id: 'note',      n: '01', name: 'THE NOTE FROM BELOW', startDepth: -91, endDepth: -79,
       question: 'Who is speaking — and why read him at all?' },
-    { id: 'conscious', n: '02', name: 'TOO CONSCIOUS',       startDepth: -79, endDepth: -67 },
-    { id: 'formula',   n: '03', name: 'THE FORMULA',         startDepth: -67, endDepth: -55 },
-    { id: 'advantage', n: '04', name: 'THE ADVANTAGE',       startDepth: -55, endDepth: -43 },
+    { id: 'conscious', n: '02', name: 'TOO CONSCIOUS',       startDepth: -79, endDepth: -67,
+      question: 'Why does seeing more mean doing less?' },
+    { id: 'formula',   n: '03', name: 'THE FORMULA',         startDepth: -67, endDepth: -55,
+      question: 'Can a person be calculated?' },
+    { id: 'advantage', n: '04', name: 'THE ADVANTAGE',       startDepth: -55, endDepth: -43,
+      question: 'What is freedom worth, if it must always choose well?' },
     { id: 'spite',     n: '05', name: 'SPITE',               startDepth: -43, endDepth: -31,
       question: 'Why hurt yourself when you know better?' },
-    { id: 'wall',      n: '06', name: 'THE WALL',            startDepth: -31, endDepth: -19 },
-    { id: 'liza',      n: '07', name: 'LIZA',                startDepth: -19, endDepth: -7 },
-    { id: 'surface',   n: '08', name: 'SURFACE',             startDepth: -7,  endDepth: 0 }
+    { id: 'wall',      n: '06', name: 'THE WALL',            startDepth: -31, endDepth: -19,
+      question: 'If your rebellion can itself be predicted, are you free?' },
+    { id: 'liza',      n: '07', name: 'LIZA',                startDepth: -19, endDepth: -7,
+      question: 'Can he meet another person without a hierarchy?' },
+    { id: 'surface',   n: '08', name: 'SURFACE',             startDepth: -7,  endDepth: 0,
+      question: 'What does he bring up with him — and what stays below?' }
   ],
 
   content: {},

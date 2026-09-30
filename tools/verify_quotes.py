@@ -30,6 +30,9 @@ AUTHORED = {
     'The narrator attacks Chernyshevsky by name.',
     'He only thinks he chooses against his interest; really he misjudges it.',
     'So he thinks reason is worthless.',
+    'If people value choice, then choice is just one more utility to maximise.',
+    'So a free man must act unreasonably.',
+    'He thinks foolish choices are better than wise ones.',
 }
 
 
